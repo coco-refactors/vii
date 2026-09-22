@@ -1,0 +1,26 @@
+.git
+.gitignore
+
+# Installed in the builder stage from docker-build/composer.json
+vault/vendor
+
+# Generated inside the image by `./init --env=Production`. Excluding them keeps a
+# local build byte-identical to Railway's (which builds from git, where these are
+# ignored) and stops a developer's Development-env entry points — YII_DEBUG on —
+# from being baked into a production image.
+vault/*/web/index.php
+vault/*/web/index-test.php
+vault/yii
+vault/yii_test
+
+# Only the installed copies. This must not reach vault/environments/**, which
+# holds the templates `./init` generates those copies from.
+vault/*/config/*-local.php
+
+# Runtime state; belongs on the volume or is regenerated
+vault/*/runtime/*
+vault/*/web/assets/*
+vault/common/web/uploads/*
+
+docker-compose.yml
+README.md

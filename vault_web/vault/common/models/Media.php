@@ -90,7 +90,7 @@ class Media extends \common\models\base\MediaBase
 			// MOV (QuickTime) movie files are not playable on Android devices. Convert them to .mp4
     		if (strtoupper($extension) == 'MOV') {
 	    		// convert file to mp4
-	    		$execCmd = "/usr/local/bin/ffmpeg -probesize 500000000 -analyzeduration 2000000000 -i " . escapeshellarg($newFilePath . 		$newFileName . "." . $extension) . " -vcodec copy -acodec copy " . escapeshellarg($newFilePath . $newFileName . ".mp4");
+	    		$execCmd = "/usr/bin/ffmpeg -probesize 500000000 -analyzeduration 2000000000 -i " . escapeshellarg($newFilePath . 		$newFileName . "." . $extension) . " -vcodec copy -acodec copy " . escapeshellarg($newFilePath . $newFileName . ".mp4");
 	   			$exRet = exec($execCmd);
 	   			// delete old file
 	   			if(file_exists($newFilePath . $newFileName . "." . $extension)){

@@ -31,6 +31,9 @@ Temporary Items
 .env
 .env.*
 *-local.php
+# ...except the templates under environments/, which `./init` copies the real
+# local configs from. Without these tracked, a fresh clone can't run ./init.
+!vault/environments/**/*-local.php
 
 # Dependency directories (managed per-app by their own composer.json)
 vendor/
