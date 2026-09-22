@@ -28,4 +28,11 @@ sed -e "s/__BACKEND_PORT__/${BACKEND_PORT}/g" \
 mkdir -p /var/www/html/common/web/uploads
 chown www-data:www-data /var/www/html/common/web/uploads
 
+# Railway's runtime leaves a second MPM enabled, which Apache refuses to start
+# under; the same image runs fine elsewhere. mod_php only supports prefork, so
+# pin it. a2dismod won't clear symlinks it didn't create, hence the rm.
+a2dismod mpm_event mpm_worker >/dev/null 2>&1 || true
+rm -f /etc/apache2/mods-enabled/mpm_event.* /etc/apache2/mods-enabled/mpm_worker.*
+a2enmod mpm_prefork >/dev/null 2>&1 || true
+
 exec docker-php-entrypoint "$@"
