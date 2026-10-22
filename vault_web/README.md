@@ -86,6 +86,12 @@ There are **two** `composer.json` files:
 - `docker-build/composer.json`: copied into the Docker image during build,
   before the `vault/` source is mounted in.
 
+## Quest progress and Canvas integration
+
+The frontend also exposes authenticated `GET/POST /api/v1/quests/{quest_id}/progress`
+for reading and saving task completion. A standalone Node.js gateway sends this
+progress to Canvas as an assignment grade. See [gateway setup and API examples](../canvas_gateway/README.md).
+
 ## Directory layout
 
 ```

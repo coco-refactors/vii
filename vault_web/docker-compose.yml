@@ -11,11 +11,12 @@ services:
       - ./vault:/var/www/html
       - /var/www/html/vendor/
     build:
-      context: docker-build
+      context: .
+      dockerfile: docker-build/Dockerfile
   mysql:
     container_name: mysql
     ports:
-        - 3306:3306
+        - 3307:3306
     # volumes:
     #   - ./mysql-data:/var/lib/mysql
     image: mariadb:10

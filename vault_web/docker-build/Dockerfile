@@ -58,6 +58,8 @@ COPY docker-build/verify-config.php /usr/local/share/vault-config/
 
 RUN php /usr/local/share/vault-config/verify-config.php
 
+RUN sed -i 's/\r$//' /usr/local/bin/vault-entrypoint.sh
+
 ENTRYPOINT ["/usr/local/bin/vault-entrypoint.sh"]
 
 CMD ["apache2-foreground"]

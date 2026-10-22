@@ -14,6 +14,7 @@ return [
     'components' => [
         'request' => [
             'csrfParam' => '_csrf-frontend',
+            'parsers' => ['application/json' => 'yii\web\JsonParser'],
         ],
     		'response' => [
 		    'formatters' => [
@@ -49,6 +50,7 @@ return [
             'enablePrettyUrl' => true,
             'showScriptName' => false,
             'rules' => [
+                'api/v1/quests/<quest_id:\d+>/progress' => 'progress/quest',
             ],
         ],
     ],
