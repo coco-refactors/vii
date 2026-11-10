@@ -190,4 +190,38 @@ class QuestAttempt extends ActiveRecord
             return [$attempt, true];
         });
     }
+
+    /**
+     * Preserve the open attempt as abandoned, reset task progress,
+     * and create the next attempt with the same launch reference.
+     */
+    public static function restart($userId, $questId)
+    {
+        return self::getDb()->transaction(function ($db) use ($userId, $questId) {
+            $user = $db->createCommand(
+                'SELECT id FROM {{%user}} WHERE id = :id FOR UPDATE',
+                [':id' => $userId]
+            )->queryScalar();
+
+            if ($user === false) {
+                throw new \RuntimeException('Attempt user was not found.');
+            }
+
+            $open = self::findOpen($userId, $questId);
+            $launchRef = null;
+
+            if ($open !== null) {
+                $launchRef = $open->launch_ref;
+                $open->status = self::STATUS_ABANDONED;
+
+                if (!$open->save(false, ['status', 'updated_at'])) {
+                    throw new \RuntimeException('Could not abandon previous attempt.');
+                }
+            }
+
+            self::resetTasks($userId, $questId);
+
+            return self::start($userId, $questId, $launchRef, false);
+        });
+    }
 }
