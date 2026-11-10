@@ -1240,6 +1240,170 @@ try {
     }
 }
 
+section('Quest reset and gateway attempt state');
+
+$fixture = null;
+$viiServer = null;
+$gatewayKey = str_repeat('g', 40);
+
+try {
+    $fixture = createFixture();
+    $viiPort = freePort();
+
+    $viiServer = startServer(
+        $viiPort,
+        [
+            '-t',
+            $root . '/frontend/web',
+            $root . '/frontend/web/index.php',
+        ],
+        ['GATEWAY_API_KEY' => $gatewayKey]
+    );
+
+    $apiUrl = "http://127.0.0.1:{$viiPort}/api";
+
+    [$status, $response] = http(
+        'POST',
+        $apiUrl . '/authenticate',
+        [
+            'type' => 'basic',
+            'username' => $fixture['username'],
+            'password' => $fixture['password'],
+        ]
+    );
+
+    $accessToken =
+        (string)($response['data']['oauth']['access_token'] ?? '');
+
+    if ($status !== 200 || $accessToken === '') {
+        throw new \RuntimeException(
+            'Could not authenticate the reset-test user.'
+        );
+    }
+
+    [$status, $response] = http(
+        'POST',
+        $apiUrl . '/start-attempt',
+        ['quest_id' => $fixture['questId']],
+        [],
+        $accessToken
+    );
+
+    if (
+        $status !== 200 ||
+        ($response['data']['isNew'] ?? null) !== true
+    ) {
+        throw new \RuntimeException('Could not create the reset-test attempt.');
+    }
+
+    [$status, $response] = http(
+        'POST',
+        $apiUrl . '/download-quest',
+        ['quest_id' => $fixture['questId']],
+        [],
+        $accessToken
+    );
+
+    if ($status !== 200 || ($response['returnCode'] ?? null) !== 0) {
+        throw new \RuntimeException('Could not create reset-test task progress.');
+    }
+
+    \common\models\UserTask::updateAll(
+        [
+            'is_complete' => 1,
+            'response_text' => 'Progress before reset',
+        ],
+        [
+            'user_id' => $fixture['userId'],
+            'task_id' => $fixture['taskIds'],
+        ]
+    );
+
+    [$status, $response] = http(
+        'POST',
+        $apiUrl . '/reset-quest',
+        ['quest_id' => $fixture['questId']],
+        [],
+        $accessToken
+    );
+
+    $attempts = QuestAttempt::find()
+        ->where([
+            'user_id' => $fixture['userId'],
+            'quest_id' => $fixture['questId'],
+        ])
+        ->orderBy(['attempt_number' => SORT_ASC])
+        ->all();
+
+    check(
+        $status === 200 &&
+        ($response['returnCode'] ?? null) === 0 &&
+        count($attempts) === 2 &&
+        $attempts[0]->status === QuestAttempt::STATUS_ABANDONED &&
+        (int)$attempts[0]->attempt_number === 1 &&
+        $attempts[1]->status === QuestAttempt::STATUS_OPEN &&
+        (int)$attempts[1]->attempt_number === 2,
+        'reset abandons attempt one and opens attempt two'
+    );
+
+    $userTasks = \common\models\UserTask::find()
+        ->where([
+            'user_id' => $fixture['userId'],
+            'task_id' => $fixture['taskIds'],
+        ])
+        ->all();
+
+    $progressWasReset =
+        count($userTasks) === 2 &&
+        count(array_filter(
+            $userTasks,
+            function ($userTask) {
+                return
+                    (int)$userTask->is_complete !== 0 ||
+                    $userTask->response_text !== null;
+            }
+        )) === 0;
+
+    check(
+        $progressWasReset,
+        'reset clears completion state and responses'
+    );
+
+    $stateUrl =
+        "http://127.0.0.1:{$viiPort}/gateway/attempt-state?" .
+        http_build_query([
+            'username' => $fixture['username'],
+            'quest_id' => $fixture['questId'],
+        ]);
+
+    [$status, $response] = http(
+        'GET',
+        $stateUrl,
+        [],
+        ['X-Gateway-Key: ' . $gatewayKey]
+    );
+
+    $latestState = $response['data']['latest'] ?? null;
+
+    check(
+        $status === 200 &&
+        ($response['data']['attempts'] ?? null) === 2 &&
+        is_array($latestState) &&
+        ($latestState['number'] ?? null) === 2 &&
+        ($latestState['status'] ?? null) === QuestAttempt::STATUS_OPEN &&
+        !array_key_exists('score', $latestState),
+        'gateway attempt state reports attempt two without a score'
+    );
+} finally {
+    if (is_array($viiServer)) {
+        stopServer($viiServer);
+    }
+
+    if (is_array($fixture)) {
+        cleanupFixture($fixture);
+    }
+}
+
 section('Database and model bootstrap');
 
 check(
