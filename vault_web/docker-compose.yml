@@ -2,7 +2,10 @@ services:
   vault:
     container_name: vault
     restart: unless-stopped
-    # environment:
+    environment:
+      GATEWAY_API_KEY: ${GATEWAY_API_KEY:-}
+      GATEWAY_HOOK_URL: ${GATEWAY_HOOK_URL:-}
+      GATEWAY_HOOK_SECRET: ${GATEWAY_HOOK_SECRET:-}
     ports:
       - 80:80
       - 89:89
