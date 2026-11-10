@@ -6,6 +6,8 @@ use yii\behaviors\TimestampBehavior;
 use yii\db\ActiveRecord;
 use yii\db\Expression;
 
+use common\components\AttemptRules;
+
 /**
  * One user's attempt at a quest.
  */
@@ -222,6 +224,56 @@ class QuestAttempt extends ActiveRecord
             self::resetTasks($userId, $questId);
 
             return self::start($userId, $questId, $launchRef, false);
+        });
+    }
+
+    /** Save the finished attempt's task counts and completion score. */
+    public function finish()
+    {
+        return self::getDb()->transaction(function ($db) {
+            $user = $db->createCommand(
+                'SELECT id FROM {{%user}} WHERE id = :id FOR UPDATE',
+                [':id' => $this->user_id]
+            )->queryScalar();
+
+            if ($user === false || !$this->refresh()) {
+                throw new \RuntimeException('Attempt or user was not found.');
+            }
+
+            if ($this->status === self::STATUS_FINISHED) {
+                return $this;
+            }
+
+            if ($this->status !== self::STATUS_OPEN) {
+                throw new \RuntimeException('Only an open attempt can be finished.');
+            }
+
+            list($completed, $total) = self::taskCounts(
+                $this->user_id,
+                $this->quest_id
+            );
+
+            $this->tasks_completed = $completed;
+            $this->tasks_total = $total;
+            $this->score = number_format(
+                AttemptRules::shareOf($completed, $total),
+                4,
+                '.',
+                ''
+            );
+            $this->status = self::STATUS_FINISHED;
+            $this->finished_at = date('Y-m-d H:i:s');
+
+            if ($this->launch_ref) {
+                $this->hook_status = self::HOOK_PENDING;
+                $this->next_retry_at = $this->finished_at;
+            }
+
+            if (!$this->save(false)) {
+                throw new \RuntimeException('Could not finish attempt.');
+            }
+
+            return $this;
         });
     }
 }
