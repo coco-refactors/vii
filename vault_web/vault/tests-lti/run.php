@@ -940,6 +940,189 @@ try {
     @rmdir($fakeGatewayDirectory);
 }
 
+section('Hook retry and terminal failure delivery');
+
+$retryDirectory =
+    sys_get_temp_dir() . '/vii-retry-hook-' . bin2hex(random_bytes(6));
+$fixture = null;
+$fakeGatewayServer = null;
+$hookSecret = str_repeat('r', 40);
+
+$originalHookUrl = Yii::$app->params['gateway.hookUrl'];
+$originalHookSecret = Yii::$app->params['gateway.hookSecret'];
+
+if (!mkdir($retryDirectory, 0700, true)) {
+    throw new \RuntimeException('Could not create the retry test directory.');
+}
+
+try {
+    $fixture = createFixture();
+
+    if (file_put_contents($retryDirectory . '/mode', '503') === false) {
+        throw new \RuntimeException('Could not configure retry mode.');
+    }
+
+    $fakeGatewayPort = freePort();
+    $fakeGatewayServer = startServer(
+        $fakeGatewayPort,
+        ['tests-lti/fake-gateway.php'],
+        ['FAKE_GW_DIR' => $retryDirectory]
+    );
+
+    Yii::$app->params['gateway.hookUrl'] =
+        "http://127.0.0.1:{$fakeGatewayPort}/hooks/attempts";
+    Yii::$app->params['gateway.hookSecret'] = $hookSecret;
+
+    foreach ($fixture['taskIds'] as $index => $taskId) {
+        $userTask = new \common\models\UserTask();
+        $userTask->user_id = $fixture['userId'];
+        $userTask->task_id = $taskId;
+        $userTask->is_complete = 1;
+        $userTask->response_text = 'Retry response ' . ($index + 1);
+        saveFixtureModel($userTask, 'Retry user task');
+    }
+
+    [$retryAttempt] = QuestAttempt::start(
+        $fixture['userId'],
+        $fixture['questId'],
+        'retry-' . bin2hex(random_bytes(8))
+    );
+
+    $retryAttempt = $retryAttempt->finish();
+    $firstDelivery = GatewayHook::sendFinished($retryAttempt);
+    $retryAttempt->refresh();
+
+    check(
+        $firstDelivery === false &&
+        $retryAttempt->hook_status === QuestAttempt::HOOK_PENDING &&
+        (int)$retryAttempt->hook_tries === 1 &&
+        $retryAttempt->next_retry_at !== null &&
+        strtotime($retryAttempt->next_retry_at) > time(),
+        '503 delivery remains pending with retry backoff'
+    );
+
+    if (file_put_contents($retryDirectory . '/mode', '200') === false) {
+        throw new \RuntimeException('Could not configure success mode.');
+    }
+
+    $retryAttempt->finished_at = '2000-01-01 00:00:00';
+    $retryAttempt->next_retry_at = date('Y-m-d H:i:s', time() - 5);
+
+    if (
+        !$retryAttempt->save(
+            false,
+            ['finished_at', 'next_retry_at', 'updated_at']
+        )
+    ) {
+        throw new \RuntimeException('Could not make the retry immediately due.');
+    }
+
+    [$due, $confirmed] = GatewayHook::resendDue(1);
+    $retryAttempt->refresh();
+
+    check(
+        $due === 1 &&
+        $confirmed === 1 &&
+        $retryAttempt->hook_status === QuestAttempt::HOOK_CONFIRMED &&
+        (int)$retryAttempt->hook_tries === 2 &&
+        $retryAttempt->next_retry_at === null,
+        'due 503 delivery is resent and confirmed'
+    );
+
+    $retryRecords = glob($retryDirectory . '/req-*.json') ?: [];
+    sort($retryRecords);
+
+    $firstRetryRecord = count($retryRecords) >= 1
+        ? json_decode((string)file_get_contents($retryRecords[0]), true)
+        : null;
+    $secondRetryRecord = count($retryRecords) >= 2
+        ? json_decode((string)file_get_contents($retryRecords[1]), true)
+        : null;
+
+    $firstRetryPayload = is_array($firstRetryRecord)
+        ? json_decode((string)$firstRetryRecord['body'], true)
+        : null;
+    $secondRetryPayload = is_array($secondRetryRecord)
+        ? json_decode((string)$secondRetryRecord['body'], true)
+        : null;
+
+    check(
+        count($retryRecords) === 2 &&
+        is_array($firstRetryPayload) &&
+        is_array($secondRetryPayload) &&
+        ($firstRetryPayload['deliveryId'] ?? null) !==
+            ($secondRetryPayload['deliveryId'] ?? null),
+        'retry uses a new delivery identifier'
+    );
+
+    if (file_put_contents($retryDirectory . '/mode', '410') === false) {
+        throw new \RuntimeException('Could not configure terminal failure mode.');
+    }
+
+    [$terminalAttempt] = QuestAttempt::start(
+        $fixture['userId'],
+        $fixture['questId'],
+        'terminal-' . bin2hex(random_bytes(8))
+    );
+
+    \common\models\UserTask::updateAll(
+        [
+            'is_complete' => 1,
+            'response_text' => 'Terminal failure response',
+        ],
+        [
+            'user_id' => $fixture['userId'],
+            'task_id' => $fixture['taskIds'],
+        ]
+    );
+
+    $terminalAttempt = $terminalAttempt->finish();
+    $terminalDelivery = GatewayHook::sendFinished($terminalAttempt);
+    $terminalAttempt->refresh();
+
+    check(
+        $terminalDelivery === false &&
+        $terminalAttempt->hook_status === QuestAttempt::HOOK_FAILED &&
+        (int)$terminalAttempt->hook_tries === 1 &&
+        $terminalAttempt->next_retry_at === null,
+        '410 delivery becomes a permanent failure'
+    );
+
+    $terminalIsRetryable = QuestAttempt::find()
+        ->where([
+            'id' => $terminalAttempt->id,
+            'hook_status' => QuestAttempt::HOOK_PENDING,
+        ])
+        ->andWhere([
+            'or',
+            ['next_retry_at' => null],
+            ['<=', 'next_retry_at', date('Y-m-d H:i:s')],
+        ])
+        ->exists();
+
+    check(
+        $terminalIsRetryable === false,
+        'permanent hook failure is excluded from retries'
+    );
+} finally {
+    Yii::$app->params['gateway.hookUrl'] = $originalHookUrl;
+    Yii::$app->params['gateway.hookSecret'] = $originalHookSecret;
+
+    if (is_array($fakeGatewayServer)) {
+        stopServer($fakeGatewayServer);
+    }
+
+    if (is_array($fixture)) {
+        cleanupFixture($fixture);
+    }
+
+    foreach (glob($retryDirectory . '/*') ?: [] as $file) {
+        @unlink($file);
+    }
+
+    @rmdir($retryDirectory);
+}
+
 section('Database and model bootstrap');
 
 check(
