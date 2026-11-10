@@ -616,7 +616,7 @@ try {
     }
 }
 
-section('First-attempt progress hook');
+section('Attempt progress and completion hooks');
 
 $fakeGatewayDirectory =
     sys_get_temp_dir() . '/vii-start-hook-' . bin2hex(random_bytes(6));
@@ -773,6 +773,153 @@ try {
         ),
         'started hook signature validates against its exact body'
     );
+
+    foreach ($recordFiles as $file) {
+        @unlink($file);
+    }
+
+    [$status, $response] = http(
+        'POST',
+        $apiUrl . '/download-quest',
+        ['quest_id' => $fixture['questId']],
+        [],
+        $accessToken
+    );
+
+    $downloadedTasks = $response['data']['quest']['tasks'] ?? [];
+    $userTaskIds = array_map(
+        function ($task) {
+            return (int)($task['userTask']['id'] ?? 0);
+        },
+        $downloadedTasks
+    );
+
+    check(
+        $status === 200 &&
+        ($response['returnCode'] ?? null) === 0 &&
+        count($downloadedTasks) === 2 &&
+        min($userTaskIds) > 0,
+        'downloading the quest creates both user task records'
+    );
+
+    [$status, $response] = http(
+        'POST',
+        $apiUrl . '/save-user-task',
+        [
+            'id' => $userTaskIds[0],
+            'UserTask' => [
+                'id' => $userTaskIds[0],
+                'task_id' => $fixture['taskIds'][0],
+                'is_complete' => 1,
+                'response_text' => 'First integration response',
+            ],
+        ],
+        [],
+        $accessToken
+    );
+
+    $storedAttempt = QuestAttempt::findOne($attemptId);
+    $completionRecords =
+        glob($fakeGatewayDirectory . '/req-*.json') ?: [];
+
+    check(
+        $status === 200 &&
+        ($response['returnCode'] ?? null) === 0 &&
+        $storedAttempt !== null &&
+        $storedAttempt->status === QuestAttempt::STATUS_OPEN &&
+        count($completionRecords) === 0,
+        'completing one task leaves the attempt open without a finish hook'
+    );
+
+    [$status, $response] = http(
+        'POST',
+        $apiUrl . '/save-user-task',
+        [
+            'id' => $userTaskIds[1],
+            'UserTask' => [
+                'id' => $userTaskIds[1],
+                'task_id' => $fixture['taskIds'][1],
+                'is_complete' => 1,
+                'response_text' => 'Second integration response',
+            ],
+        ],
+        [],
+        $accessToken
+    );
+
+    $storedAttempt = QuestAttempt::findOne($attemptId);
+
+    check(
+        $status === 200 &&
+        ($response['returnCode'] ?? null) === 0 &&
+        $storedAttempt !== null &&
+        $storedAttempt->status === QuestAttempt::STATUS_FINISHED &&
+        (int)$storedAttempt->tasks_completed === 2 &&
+        (int)$storedAttempt->tasks_total === 2 &&
+        (float)$storedAttempt->score === 1.0 &&
+        $storedAttempt->hook_status === QuestAttempt::HOOK_CONFIRMED,
+        'completing all active tasks finishes and scores the attempt'
+    );
+
+    $completionRecords =
+        glob($fakeGatewayDirectory . '/req-*.json') ?: [];
+    sort($completionRecords);
+
+    check(
+        count($completionRecords) === 1,
+        'completion hook is delivered exactly once'
+    );
+
+    $completionRecord = count($completionRecords) === 1
+        ? json_decode(
+            (string)file_get_contents($completionRecords[0]),
+            true
+        )
+        : null;
+
+    $completionBody = is_array($completionRecord)
+        ? (string)($completionRecord['body'] ?? '')
+        : '';
+    $completionPayload = json_decode($completionBody, true);
+    $completionTasks =
+        $completionPayload['content']['tasks'] ?? [];
+
+    check(
+        is_array($completionPayload) &&
+        ($completionPayload['event'] ?? null) === 'attempt.finished' &&
+        ($completionPayload['activityProgress'] ?? null) === 'Completed' &&
+        (float)($completionPayload['score'] ?? -1) === 1.0 &&
+        ($completionPayload['content']['questName'] ?? null) ===
+            $fixture['questName'] &&
+        (int)($completionPayload['content']['tasksCompleted'] ?? 0) === 2 &&
+        (int)($completionPayload['content']['tasksTotal'] ?? 0) === 2 &&
+        count($completionTasks) === 2 &&
+        ($completionTasks[0]['response'] ?? null) ===
+            'First integration response' &&
+        ($completionTasks[1]['response'] ?? null) ===
+            'Second integration response',
+        'completion hook contains the final score and readable responses'
+    );
+
+    check(
+        strpos($completionBody, 'private-answer-one') === false &&
+        strpos($completionBody, 'private-answer-two') === false &&
+        !array_key_exists('answer', $completionTasks[0] ?? []) &&
+        !array_key_exists('answer', $completionTasks[1] ?? []),
+        'completion hook excludes private task answers'
+    );
+
+    check(
+        is_array($completionRecord) &&
+        HookSigner::verify(
+            $hookSecret,
+            (string)($completionRecord['timestamp'] ?? ''),
+            $completionBody,
+            (string)($completionRecord['signature'] ?? '')
+        ),
+        'completion hook signature validates against its exact body'
+    );
+
 } finally {
     if (is_array($viiServer)) {
         stopServer($viiServer);
