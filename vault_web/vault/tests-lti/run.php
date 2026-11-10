@@ -1123,6 +1123,123 @@ try {
     @rmdir($retryDirectory);
 }
 
+section('User task ownership enforcement');
+
+$ownerFixture = null;
+$attackerFixture = null;
+$viiServer = null;
+
+try {
+    $ownerFixture = createFixture();
+    $attackerFixture = createFixture();
+
+    $ownedUserTask = new \common\models\UserTask();
+    $ownedUserTask->user_id = $ownerFixture['userId'];
+    $ownedUserTask->task_id = $ownerFixture['taskIds'][0];
+    $ownedUserTask->is_complete = 0;
+    $ownedUserTask->response_text = 'Original owner response';
+    saveFixtureModel($ownedUserTask, 'Owned user task');
+
+    $viiPort = freePort();
+    $viiServer = startServer(
+        $viiPort,
+        [
+            '-t',
+            $root . '/frontend/web',
+            $root . '/frontend/web/index.php',
+        ]
+    );
+
+    $apiUrl = "http://127.0.0.1:{$viiPort}/api";
+
+    [$status, $response] = http(
+        'POST',
+        $apiUrl . '/authenticate',
+        [
+            'type' => 'basic',
+            'username' => $attackerFixture['username'],
+            'password' => $attackerFixture['password'],
+        ]
+    );
+
+    $attackerToken =
+        (string)($response['data']['oauth']['access_token'] ?? '');
+
+    if ($status !== 200 || $attackerToken === '') {
+        throw new \RuntimeException(
+            'Could not authenticate the ownership-test user.'
+        );
+    }
+
+    [$status] = http(
+        'POST',
+        $apiUrl . '/save-user-task',
+        [
+            'id' => $ownedUserTask->id,
+            'UserTask' => [
+                'id' => $ownedUserTask->id,
+                'user_id' => $attackerFixture['userId'],
+                'task_id' => $ownerFixture['taskIds'][0],
+                'is_complete' => 1,
+                'response_text' => 'Unauthorized direct update',
+            ],
+        ],
+        [],
+        $attackerToken
+    );
+
+    $ownedUserTask->refresh();
+
+    check(
+        $status === 403 &&
+        (int)$ownedUserTask->user_id === $ownerFixture['userId'] &&
+        (int)$ownedUserTask->is_complete === 0 &&
+        $ownedUserTask->response_text === 'Original owner response',
+        'save-user-task rejects updates to another user task'
+    );
+
+    $queuedUpdate = json_encode([
+        'id' => 'ownership-test-update',
+        'json' => json_encode([
+            'id' => (int)$ownedUserTask->id,
+            'user_id' => $attackerFixture['userId'],
+            'task_id' => $ownerFixture['taskIds'][0],
+            'is_complete' => 1,
+            'response_text' => 'Unauthorized sync update',
+        ]),
+    ]);
+
+    [$status] = http(
+        'POST',
+        $apiUrl . '/sync-user-tasks',
+        ['userTasks' => [$queuedUpdate]],
+        [],
+        $attackerToken
+    );
+
+    $ownedUserTask->refresh();
+
+    check(
+        $status === 403 &&
+        (int)$ownedUserTask->user_id === $ownerFixture['userId'] &&
+        (int)$ownedUserTask->is_complete === 0 &&
+        $ownedUserTask->response_text === 'Original owner response',
+        'sync-user-tasks rejects updates to another user task'
+    );
+} finally {
+    if (is_array($viiServer)) {
+        stopServer($viiServer);
+    }
+
+    if (is_array($attackerFixture)) {
+        cleanupFixture($attackerFixture);
+    }
+
+    if (is_array($ownerFixture)) {
+        cleanupFixture($ownerFixture);
+    }
+}
+
 section('Database and model bootstrap');
 
 check(
