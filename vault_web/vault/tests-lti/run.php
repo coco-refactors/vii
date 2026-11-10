@@ -300,6 +300,82 @@ try {
     @rmdir($fakeGatewayDirectory);
 }
 
+section('Protected gateway experiences endpoint');
+
+$gatewayKey = str_repeat('k', 40);
+$viiPort = freePort();
+$viiServer = null;
+
+try {
+    $viiServer = startServer(
+        $viiPort,
+        [
+            '-t',
+            $root . '/frontend/web',
+            $root . '/frontend/web/index.php',
+        ],
+        [
+            'GATEWAY_API_KEY' => $gatewayKey,
+            'GATEWAY_HOOK_URL' => 'http://127.0.0.1/unused',
+            'GATEWAY_HOOK_SECRET' => str_repeat('s', 40),
+        ]
+    );
+
+    $experiencesUrl =
+        "http://127.0.0.1:{$viiPort}/gateway/experiences";
+
+    [$status, $response] = http('GET', $experiencesUrl);
+
+    check(
+        $status === 401 &&
+        ($response['returnCode'] ?? null) === 1,
+        'experiences rejects a missing gateway key'
+    );
+
+    [$status, $response] = http(
+        'GET',
+        $experiencesUrl,
+        [],
+        ['X-Gateway-Key: wrong-key']
+    );
+
+    check(
+        $status === 401 &&
+        ($response['returnCode'] ?? null) === 1,
+        'experiences rejects an incorrect gateway key'
+    );
+
+    [$status, $response] = http(
+        'GET',
+        $experiencesUrl,
+        [],
+        ['X-Gateway-Key: ' . $gatewayKey]
+    );
+
+    check(
+        $status === 200 &&
+        ($response['returnCode'] ?? null) === 0 &&
+        is_array($response['data']['experiences'] ?? null),
+        'experiences accepts the configured gateway key'
+    );
+
+    [$status, $response] = http(
+        'POST',
+        $experiencesUrl,
+        [],
+        ['X-Gateway-Key: ' . $gatewayKey]
+    );
+
+    check(
+        $status === 405,
+        'experiences rejects non-GET requests'
+    );
+} finally {
+    if (is_array($viiServer)) {
+        stopServer($viiServer);
+    }
+}
+
 section('Database and model bootstrap');
 
 check(
