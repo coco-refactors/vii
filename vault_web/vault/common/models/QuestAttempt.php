@@ -95,7 +95,7 @@ class QuestAttempt extends ActiveRecord
         return $datetime ? date('c', strtotime($datetime)) : null;
     }
 
-        /** Reset active tasks for this user and clear their previous answers. */
+    /** Reset active tasks for this user and clear their previous answers. */
     public static function resetTasks($userId, $questId)
     {
         $activeTaskIds = Task::find()
@@ -133,5 +133,61 @@ class QuestAttempt extends ActiveRecord
         )->queryOne();
 
         return [(int)$row['completed'], (int)$row['total']];
+    }
+
+    /**
+     * Resume an open attempt or create the next numbered attempt.
+     * Returns [QuestAttempt $attempt, bool $isNew].
+     */
+    public static function start($userId, $questId, $launchRef = null, $resetTasks = true)
+    {
+        return self::getDb()->transaction(function ($db) use (
+            $userId, $questId, $launchRef, $resetTasks
+        ) {
+            $user = $db->createCommand(
+                'SELECT id FROM {{%user}} WHERE id = :id FOR UPDATE',
+                [':id' => $userId]
+            )->queryScalar();
+
+            if ($user === false) {
+                throw new \RuntimeException('Attempt user was not found.');
+            }
+
+            $open = self::findOpen($userId, $questId);
+            if ($open !== null) {
+                if ($launchRef !== null && $open->launch_ref !== $launchRef) {
+                    $open->launch_ref = $launchRef;
+                    if (!$open->save(false, ['launch_ref', 'updated_at'])) {
+                        throw new \RuntimeException('Could not update attempt launch reference.');
+                    }
+                }
+
+                return [$open, false];
+            }
+
+            $previous = (int)self::find()
+                ->where(['user_id' => $userId, 'quest_id' => $questId])
+                ->max('attempt_number');
+
+            list($completed) = self::taskCounts($userId, $questId);
+
+            $attempt = new self();
+            $attempt->user_id = $userId;
+            $attempt->quest_id = $questId;
+            $attempt->attempt_number = $previous + 1;
+            $attempt->launch_ref = $launchRef;
+            $attempt->status = self::STATUS_OPEN;
+            $attempt->started_at = date('Y-m-d H:i:s');
+
+            if (!$attempt->save(false)) {
+                throw new \RuntimeException('Could not create attempt.');
+            }
+
+            if ($resetTasks && ($previous > 0 || $completed > 0)) {
+                self::resetTasks($userId, $questId);
+            }
+
+            return [$attempt, true];
+        });
     }
 }
