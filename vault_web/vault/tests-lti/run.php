@@ -495,7 +495,7 @@ try {
         $status === 405,
         'experiences rejects non-GET requests'
     );
-    
+
 } finally {
     try {
         if (is_array($viiServer)) {
