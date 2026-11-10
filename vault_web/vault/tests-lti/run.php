@@ -54,6 +54,43 @@ function section($name)
     echo "\n{$name}\n";
 }
 
+function http($method, $url, $fields = [], $headers = [], $basicUser = null)
+{
+    $ch = curl_init($url);
+
+    if ($ch === false) {
+        throw new \RuntimeException('Could not initialize test HTTP request.');
+    }
+
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_CUSTOMREQUEST => $method,
+        CURLOPT_HTTPHEADER => $headers,
+        CURLOPT_CONNECTTIMEOUT => 3,
+        CURLOPT_TIMEOUT => 20,
+    ]);
+
+    if ($method === 'POST') {
+        curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($fields));
+    }
+
+    if ($basicUser !== null) {
+        curl_setopt($ch, CURLOPT_USERPWD, $basicUser . ':');
+    }
+
+    $body = curl_exec($ch);
+
+    if ($body === false) {
+        throw new \RuntimeException(
+            'Test HTTP request failed with cURL error ' . curl_errno($ch)
+        );
+    }
+
+    $status = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+
+    return [$status, json_decode($body, true)];
+}
+
 section('Database and model bootstrap');
 
 check(
