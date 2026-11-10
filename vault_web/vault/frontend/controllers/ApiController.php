@@ -349,6 +349,7 @@ class ApiController extends \yii\web\Controller
 			
 			if ($userTask->load(\Yii::$app->request->post()) && $userTask->save()) {
 				UserEvent::saveUserEvent($userTask->user_id, UserEvent::TYPE_SAVE_USER_TASK, "User task was saved/updated. user_task->id = {$userTask->id}");
+				self::finishAttemptsFor($userTask->user_id, [$userTask->task_id]);
 				return [
 						'returnCode'=>0, 
 						'returnCodeDescription'=>"Success", 
