@@ -91,6 +91,148 @@ function http($method, $url, $fields = [], $headers = [], $basicUser = null)
     return [$status, json_decode($body, true)];
 }
 
+function freePort()
+{
+    $server = @stream_socket_server(
+        'tcp://127.0.0.1:0',
+        $errorNumber,
+        $errorMessage
+    );
+
+    if ($server === false) {
+        throw new \RuntimeException(
+            "Could not reserve a test port: {$errorNumber} {$errorMessage}"
+        );
+    }
+
+    $address = stream_socket_get_name($server, false);
+    fclose($server);
+
+    if (
+        $address === false ||
+        !preg_match('/:(\d+)$/', $address, $matches)
+    ) {
+        throw new \RuntimeException('Could not determine the reserved test port.');
+    }
+
+    return (int)$matches[1];
+}
+
+function startServer($port, array $arguments, array $environment = [])
+{
+    $logFile = tempnam(sys_get_temp_dir(), 'vii-server-');
+
+    if ($logFile === false) {
+        throw new \RuntimeException('Could not create a test server log.');
+    }
+
+    $command = array_merge(
+        [PHP_BINARY, '-S', "127.0.0.1:{$port}"],
+        $arguments
+    );
+
+    $baseEnvironment = getenv();
+
+    if (!is_array($baseEnvironment)) {
+        $baseEnvironment = [];
+    }
+
+    $descriptors = [
+        0 => ['pipe', 'r'],
+        1 => ['file', $logFile, 'a'],
+        2 => ['file', $logFile, 'a'],
+    ];
+
+    $process = proc_open(
+        $command,
+        $descriptors,
+        $pipes,
+        dirname(__DIR__),
+        array_merge($baseEnvironment, $environment),
+        ['bypass_shell' => true]
+    );
+
+    if (!is_resource($process)) {
+        @unlink($logFile);
+        throw new \RuntimeException('Could not start the test server.');
+    }
+
+    fclose($pipes[0]);
+
+    for ($attempt = 0; $attempt < 50; $attempt++) {
+        $status = proc_get_status($process);
+
+        if (!$status['running']) {
+            $output = trim((string)@file_get_contents($logFile));
+            proc_close($process);
+            @unlink($logFile);
+
+            throw new \RuntimeException(
+                "Test server stopped during startup: {$output}"
+            );
+        }
+
+        $connection = @fsockopen('127.0.0.1', $port, $errorNumber, $errorMessage, 0.1);
+
+        if (is_resource($connection)) {
+            fclose($connection);
+
+            return [
+                'process' => $process,
+                'logFile' => $logFile,
+            ];
+        }
+
+        usleep(100000);
+    }
+
+    proc_terminate($process);
+    proc_close($process);
+
+    $output = trim((string)@file_get_contents($logFile));
+    @unlink($logFile);
+
+    throw new \RuntimeException(
+        "Test server did not become ready: {$output}"
+    );
+}
+
+function stopServer(array $server)
+{
+    if (
+        isset($server['process']) &&
+        is_resource($server['process'])
+    ) {
+        $status = proc_get_status($server['process']);
+
+        if ($status['running']) {
+            proc_terminate($server['process']);
+
+            for ($attempt = 0; $attempt < 20; $attempt++) {
+                usleep(50000);
+                $status = proc_get_status($server['process']);
+
+                if (!$status['running']) {
+                    break;
+                }
+            }
+
+            if ($status['running']) {
+                proc_terminate($server['process'], 9);
+            }
+        }
+
+        proc_close($server['process']);
+    }
+
+    if (
+        isset($server['logFile']) &&
+        is_string($server['logFile'])
+    ) {
+        @unlink($server['logFile']);
+    }
+}
+
 section('Database and model bootstrap');
 
 check(
