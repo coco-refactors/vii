@@ -248,4 +248,33 @@ class GatewayHook
             return true;
         });
     }
+
+    /** Return [due count, confirmed count] after processing pending hooks. */
+    public static function resendDue($limit = 50)
+    {
+        $limit = (int)$limit;
+        if ($limit < 1) {
+            throw new \InvalidArgumentException('Resend limit must be positive.');
+        }
+
+        $due = QuestAttempt::find()
+            ->where(['hook_status' => QuestAttempt::HOOK_PENDING])
+            ->andWhere([
+                'or',
+                ['next_retry_at' => null],
+                ['<=', 'next_retry_at', date('Y-m-d H:i:s')],
+            ])
+            ->orderBy(['finished_at' => SORT_ASC, 'id' => SORT_ASC])
+            ->limit($limit)
+            ->all();
+
+        $confirmed = 0;
+        foreach ($due as $attempt) {
+            if (self::sendFinished($attempt)) {
+                $confirmed++;
+            }
+        }
+
+        return [count($due), $confirmed];
+    }
 }
