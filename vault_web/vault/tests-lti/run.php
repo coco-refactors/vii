@@ -512,6 +512,110 @@ check(
     'temporary integration fixtures are removed'
 );
 
+section('Authenticated attempt start and resume');
+
+$fixture = createFixture();
+$viiPort = freePort();
+$viiServer = null;
+
+try {
+    $viiServer = startServer(
+        $viiPort,
+        [
+            '-t',
+            $root . '/frontend/web',
+            $root . '/frontend/web/index.php',
+        ]
+    );
+
+    $apiUrl = "http://127.0.0.1:{$viiPort}/api";
+
+    [$status, $response] = http(
+        'POST',
+        $apiUrl . '/authenticate',
+        [
+            'type' => 'basic',
+            'username' => $fixture['username'],
+            'password' => $fixture['password'],
+        ]
+    );
+
+    $accessToken =
+        (string)($response['data']['oauth']['access_token'] ?? '');
+
+    check(
+        $status === 200 &&
+        ($response['returnCode'] ?? null) === 0 &&
+        $accessToken !== '',
+        'fixture user authenticates and receives an access token'
+    );
+
+    if ($accessToken === '') {
+        throw new \RuntimeException(
+            'Authentication did not return the token required for attempt tests.'
+        );
+    }
+
+    [$status, $response] = http(
+        'POST',
+        $apiUrl . '/start-attempt',
+        ['quest_id' => $fixture['questId']],
+        [],
+        $accessToken
+    );
+
+    $firstAttempt = $response['data']['attempt'] ?? [];
+
+    check(
+        $status === 200 &&
+        ($response['returnCode'] ?? null) === 0 &&
+        ($response['data']['isNew'] ?? null) === true &&
+        ($firstAttempt['number'] ?? null) === 1 &&
+        ($firstAttempt['status'] ?? null) === QuestAttempt::STATUS_OPEN,
+        'first start creates attempt one'
+    );
+
+    [$status, $response] = http(
+        'POST',
+        $apiUrl . '/start-attempt',
+        ['quest_id' => $fixture['questId']],
+        [],
+        $accessToken
+    );
+
+    $resumedAttempt = $response['data']['attempt'] ?? [];
+
+    check(
+        $status === 200 &&
+        ($response['returnCode'] ?? null) === 0 &&
+        ($response['data']['isNew'] ?? null) === false &&
+        ($resumedAttempt['id'] ?? null) === ($firstAttempt['id'] ?? null),
+        'second start resumes the existing open attempt'
+    );
+
+    $storedAttempts = QuestAttempt::find()
+        ->where([
+            'user_id' => $fixture['userId'],
+            'quest_id' => $fixture['questId'],
+        ])
+        ->all();
+
+    check(
+        count($storedAttempts) === 1 &&
+        $storedAttempts[0]->status === QuestAttempt::STATUS_OPEN &&
+        (int)$storedAttempts[0]->attempt_number === 1,
+        'resume does not create a duplicate attempt'
+    );
+} finally {
+    try {
+        if (is_array($viiServer)) {
+            stopServer($viiServer);
+        }
+    } finally {
+        cleanupFixture($fixture);
+    }
+}
+
 section('Database and model bootstrap');
 
 check(
