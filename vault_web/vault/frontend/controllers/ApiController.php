@@ -16,6 +16,7 @@ use common\models\ArTarget;
 use common\models\UserEvent;
 use common\models\RequiredTask;
 use common\models\QuestAttempt;
+use common\components\GatewayHook;
 
 class ApiController extends \yii\web\Controller
 {
@@ -720,6 +721,10 @@ class ApiController extends \yii\web\Controller
             $quest->id,
             $launchRef
         );
+
+		if ($isNew) {
+			GatewayHook::sendStarted($attempt);
+		}
 
         return [
             'returnCode' => 0,
