@@ -638,6 +638,7 @@ class ApiController extends \yii\web\Controller
 		}
 
 		$tasksNotSaved = [];
+		$savedTaskIds = [];
 		foreach($userTasks as $utsq){
 			$json = json_decode($utsq);
 			$userTaskId = $json->id;
@@ -652,6 +653,9 @@ class ApiController extends \yii\web\Controller
 				}
 				$userTask->is_complete = intval($userTask->is_complete);
 				if($userTask->save()){
+					if ((int)$userTask->user_id === (int)\Yii::$app->user->id) {
+						$savedTaskIds[] = $userTask->task_id;
+					}
 					UserEvent::saveUserEvent($userTask->user_id, UserEvent::TYPE_SAVE_USER_TASK, "User task was saved/updated. user_task->id = {$userTask->id}");
 				}else{
 					$tasksNotSaved[] = $userTask;
@@ -660,6 +664,8 @@ class ApiController extends \yii\web\Controller
 				$tasksNotSaved[] = $userTask;
 			}
 		}
+
+		self::finishAttemptsFor(\Yii::$app->user->id, $savedTaskIds);
 
 		return [
 			'returnCode'=>0, 
