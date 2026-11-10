@@ -94,4 +94,44 @@ class QuestAttempt extends ActiveRecord
     {
         return $datetime ? date('c', strtotime($datetime)) : null;
     }
+
+        /** Reset active tasks for this user and clear their previous answers. */
+    public static function resetTasks($userId, $questId)
+    {
+        $activeTaskIds = Task::find()
+            ->select('id')
+            ->where(['quest_id' => $questId, 'is_active' => 1])
+            ->column();
+
+        if (!$activeTaskIds) {
+            return 0;
+        }
+
+        return UserTask::updateAll(
+            [
+                'is_complete' => 0,
+                'response_text' => null,
+                'updated_at' => new Expression('NOW()'),
+            ],
+            ['user_id' => $userId, 'task_id' => $activeTaskIds]
+        );
+    }
+
+    /** Return [completed, total] active task counts for this user's quest. */
+    public static function taskCounts($userId, $questId)
+    {
+        $row = \Yii::$app->db->createCommand(
+            "SELECT
+                (SELECT COUNT(*) FROM task
+                    WHERE task.quest_id = :q1 AND task.is_active = 1) AS total,
+                (SELECT COUNT(*) FROM user_task
+                    JOIN task ON task.id = user_task.task_id
+                    WHERE user_task.user_id = :u
+                    AND task.quest_id = :q2 AND task.is_active = 1
+                    AND user_task.is_complete = 1) AS completed",
+            [':q1' => $questId, ':q2' => $questId, ':u' => $userId]
+        )->queryOne();
+
+        return [(int)$row['completed'], (int)$row['total']];
+    }
 }
