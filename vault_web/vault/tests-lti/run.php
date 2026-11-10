@@ -1548,6 +1548,140 @@ try {
     }
 }
 
+section('Explicit partial attempt completion');
+
+$fixture = null;
+$viiServer = null;
+
+try {
+    $fixture = createFixture();
+    $viiPort = freePort();
+
+    $viiServer = startServer(
+        $viiPort,
+        [
+            '-t',
+            $root . '/frontend/web',
+            $root . '/frontend/web/index.php',
+        ]
+    );
+
+    $apiUrl = "http://127.0.0.1:{$viiPort}/api";
+
+    [$status, $response] = http(
+        'POST',
+        $apiUrl . '/authenticate',
+        [
+            'type' => 'basic',
+            'username' => $fixture['username'],
+            'password' => $fixture['password'],
+        ]
+    );
+
+    $accessToken =
+        (string)($response['data']['oauth']['access_token'] ?? '');
+
+    if ($status !== 200 || $accessToken === '') {
+        throw new \RuntimeException(
+            'Could not authenticate the explicit-finish test user.'
+        );
+    }
+
+    [$status, $response] = http(
+        'POST',
+        $apiUrl . '/start-attempt',
+        ['quest_id' => $fixture['questId']],
+        [],
+        $accessToken
+    );
+
+    $attemptId = (int)($response['data']['attempt']['id'] ?? 0);
+
+    if ($status !== 200 || $attemptId <= 0) {
+        throw new \RuntimeException(
+            'Could not start the explicit-finish test attempt.'
+        );
+    }
+
+    [$status, $response] = http(
+        'POST',
+        $apiUrl . '/download-quest',
+        ['quest_id' => $fixture['questId']],
+        [],
+        $accessToken
+    );
+
+    if ($status !== 200 || ($response['returnCode'] ?? null) !== 0) {
+        throw new \RuntimeException(
+            'Could not create explicit-finish task progress.'
+        );
+    }
+
+    \common\models\UserTask::updateAll(
+        [
+            'is_complete' => 1,
+            'response_text' => 'Only one task completed',
+        ],
+        [
+            'user_id' => $fixture['userId'],
+            'task_id' => $fixture['taskIds'][0],
+        ]
+    );
+
+    [$status, $response] = http(
+        'POST',
+        $apiUrl . '/finish-attempt',
+        ['quest_id' => $fixture['questId']],
+        [],
+        $accessToken
+    );
+
+    $attemptState = $response['data']['attempt'] ?? [];
+
+    check(
+        $status === 200 &&
+        ($response['returnCode'] ?? null) === 0 &&
+        ($attemptState['status'] ?? null) === QuestAttempt::STATUS_FINISHED &&
+        (float)($attemptState['score'] ?? -1) === 0.5,
+        'finish-attempt returns a finished partial-score state'
+    );
+
+    $storedAttempt = QuestAttempt::findOne($attemptId);
+
+    check(
+        $storedAttempt !== null &&
+        $storedAttempt->status === QuestAttempt::STATUS_FINISHED &&
+        (int)$storedAttempt->tasks_completed === 1 &&
+        (int)$storedAttempt->tasks_total === 2 &&
+        (float)$storedAttempt->score === 0.5 &&
+        $storedAttempt->hook_status === QuestAttempt::HOOK_NONE,
+        'explicit finish stores the partial completion score'
+    );
+
+    [$status, $response] = http(
+        'POST',
+        $apiUrl . '/finish-attempt',
+        ['quest_id' => $fixture['questId']],
+        [],
+        $accessToken
+    );
+
+    check(
+        $status === 200 &&
+        ($response['returnCode'] ?? null) === 1 &&
+        ($response['data'] ?? null) === [],
+        'finish-attempt rejects a quest with no open attempt'
+    );
+} finally {
+    if (is_array($viiServer)) {
+        stopServer($viiServer);
+    }
+
+    if (is_array($fixture)) {
+        cleanupFixture($fixture);
+    }
+}
+
 section('Database and model bootstrap');
 
 check(
