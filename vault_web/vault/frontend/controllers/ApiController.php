@@ -341,25 +341,39 @@ class ApiController extends \yii\web\Controller
 	public function actionSaveUserTask()
 	{
 			$id = \Yii::$app->request->post("id");
+			$userId = (int)\Yii::$app->user->id;
 			
 			$userTask = UserTask::findOne($id);
+
+			if ($userTask !== null && (int)$userTask->user_id !== $userId) {
+				throw new \yii\web\ForbiddenHttpException(
+					'You can only save your own task progress.'
+				);
+			}
+
 			if($userTask == NULL){
 				$userTask = new UserTask();
 			}
 			
-			if ($userTask->load(\Yii::$app->request->post()) && $userTask->save()) {
-				UserEvent::saveUserEvent($userTask->user_id, UserEvent::TYPE_SAVE_USER_TASK, "User task was saved/updated. user_task->id = {$userTask->id}");
-				self::finishAttemptsFor($userTask->user_id, [$userTask->task_id]);
-				return [
-						'returnCode'=>0, 
-						'returnCodeDescription'=>"Success", 
-						'data'=>[
-							"userTask"=>$userTask
-						], 
-				];
-			}
-			
+			if ($userTask->load(\Yii::$app->request->post())) {
+				$userTask->user_id = $userId;
+				if ($userTask->save()) {
+					UserEvent::saveUserEvent(
+						$userId,
+						UserEvent::TYPE_SAVE_USER_TASK,
+						"User task was saved/updated. user_task->id = {$userTask->id}"
+					);
 
+					self::finishAttemptsFor($userTask->user_id, [$userTask->task_id]);
+					return [
+							'returnCode'=>0,
+							'returnCodeDescription'=>"Success",
+							'data'=>[
+								"userTask"=>$userTask
+							],
+					];
+				}
+			}
 			return [
 					'returnCode'=>1, 
 					'returnCodeDescription'=>"Error: Could not save user task", 
