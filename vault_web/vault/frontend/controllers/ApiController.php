@@ -743,6 +743,49 @@ class ApiController extends \yii\web\Controller
         ];
     }
 
+	/** Explicitly finish the authenticated user's open attempt. */
+    public function actionFinishAttempt()
+    {
+        if (!\Yii::$app->request->isPost) {
+            throw new \yii\web\MethodNotAllowedHttpException('Use POST for this endpoint.');
+        }
+
+        $questId = filter_var(
+            \Yii::$app->request->post('quest_id'),
+            FILTER_VALIDATE_INT,
+            ['options' => ['min_range' => 1]]
+        );
+
+        if ($questId === false) {
+            return [
+                'returnCode' => 1,
+                'returnCodeDescription' => 'Invalid parameter: quest_id',
+                'data' => [],
+            ];
+        }
+
+        $attempt = QuestAttempt::findOpen(\Yii::$app->user->id, $questId);
+        if ($attempt === null) {
+            return [
+                'returnCode' => 1,
+                'returnCodeDescription' => 'Error: No open attempt for this quest.',
+                'data' => [],
+            ];
+        }
+
+        $attempt->finish();
+        GatewayHook::sendFinished($attempt);
+
+        $state = $attempt->toStateArray();
+        $state['score'] = (float)$attempt->score;
+
+        return [
+            'returnCode' => 0,
+            'returnCodeDescription' => 'success',
+            'data' => ['attempt' => $state],
+        ];
+    }
+
 	 /** Check affected quests and deliver newly finished attempts. */
     private static function finishAttemptsFor($userId, $taskIds)
     {
