@@ -6,6 +6,8 @@ use Yii;
 use yii\filters\VerbFilter;
 use yii\web\Response;
 use common\models\Quest;
+use common\models\QuestAttempt;
+use common\models\User;
 
 /**
  * Read-only endpoints for the Canvas gateway.
@@ -20,7 +22,10 @@ class GatewayController extends \yii\web\Controller
         return [
             'verbs' => [
                 'class' => VerbFilter::className(),
-                'actions' => ['experiences' => ['GET']],
+                'actions' => [
+                    'experiences' => ['GET'],
+                    'attempt-state' => ['GET'],
+                ],
             ],
         ];
     }
@@ -76,6 +81,35 @@ class GatewayController extends \yii\web\Controller
             'returnCode' => 0,
             'returnCodeDescription' => 'success',
             'data' => ['experiences' => $experiences],
+        ];
+    }
+
+    public function actionAttemptState($username = '', $quest_id = 0)
+    {
+        $user = $username !== '' ? User::findByUsername($username) : null;
+        $questId = (int)$quest_id;
+
+        if ($user === null || $questId <= 0) {
+            return [
+                'returnCode' => 0,
+                'returnCodeDescription' => 'success',
+                'data' => ['attempts' => 0, 'latest' => null],
+            ];
+        }
+
+        $query = QuestAttempt::find()
+            ->where(['user_id' => $user->id, 'quest_id' => $questId]);
+
+        $count = (int)(clone $query)->count();
+        $latest = $query->orderBy(['attempt_number' => SORT_DESC])->one();
+
+        return [
+            'returnCode' => 0,
+            'returnCodeDescription' => 'success',
+            'data' => [
+                'attempts' => $count,
+                'latest' => $latest ? $latest->toStateArray() : null,
+            ],
         ];
     }
 }
