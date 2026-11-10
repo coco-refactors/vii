@@ -1404,6 +1404,150 @@ try {
     }
 }
 
+section('Successful task synchronization');
+
+$fixture = null;
+$viiServer = null;
+
+try {
+    $fixture = createFixture();
+    $viiPort = freePort();
+
+    $viiServer = startServer(
+        $viiPort,
+        [
+            '-t',
+            $root . '/frontend/web',
+            $root . '/frontend/web/index.php',
+        ]
+    );
+
+    $apiUrl = "http://127.0.0.1:{$viiPort}/api";
+
+    [$status, $response] = http(
+        'POST',
+        $apiUrl . '/authenticate',
+        [
+            'type' => 'basic',
+            'username' => $fixture['username'],
+            'password' => $fixture['password'],
+        ]
+    );
+
+    $accessToken =
+        (string)($response['data']['oauth']['access_token'] ?? '');
+
+    if ($status !== 200 || $accessToken === '') {
+        throw new \RuntimeException(
+            'Could not authenticate the synchronization-test user.'
+        );
+    }
+
+    [$status, $response] = http(
+        'POST',
+        $apiUrl . '/start-attempt',
+        ['quest_id' => $fixture['questId']],
+        [],
+        $accessToken
+    );
+
+    $attemptId = (int)($response['data']['attempt']['id'] ?? 0);
+
+    if ($status !== 200 || $attemptId <= 0) {
+        throw new \RuntimeException(
+            'Could not start the synchronization-test attempt.'
+        );
+    }
+
+    [$status, $response] = http(
+        'POST',
+        $apiUrl . '/download-quest',
+        ['quest_id' => $fixture['questId']],
+        [],
+        $accessToken
+    );
+
+    $downloadedTasks = $response['data']['quest']['tasks'] ?? [];
+
+    if ($status !== 200 || count($downloadedTasks) !== 2) {
+        throw new \RuntimeException(
+            'Could not download synchronization-test tasks.'
+        );
+    }
+
+    $syncItems = [];
+
+    foreach ($downloadedTasks as $index => $task) {
+        $userTaskId = (int)($task['userTask']['id'] ?? 0);
+
+        $syncItems[] = json_encode([
+            'id' => 'sync-' . $userTaskId,
+            'json' => json_encode([
+                'id' => $userTaskId,
+                'user_id' => $fixture['userId'],
+                'task_id' => $fixture['taskIds'][$index],
+                'is_complete' => 1,
+                'response_text' =>
+                    'Synchronized response ' . ($index + 1),
+            ]),
+        ]);
+    }
+
+    [$status, $response] = http(
+        'POST',
+        $apiUrl . '/sync-user-tasks',
+        ['userTasks' => $syncItems],
+        [],
+        $accessToken
+    );
+
+    check(
+        $status === 200 &&
+        ($response['returnCode'] ?? null) === 0 &&
+        ($response['data']['tasksNotSaved'] ?? null) === [],
+        'sync-user-tasks saves both task updates'
+    );
+
+    $attempt = QuestAttempt::findOne($attemptId);
+
+    check(
+        $attempt !== null &&
+        $attempt->status === QuestAttempt::STATUS_FINISHED &&
+        (int)$attempt->tasks_completed === 2 &&
+        (int)$attempt->tasks_total === 2 &&
+        (float)$attempt->score === 1.0 &&
+        $attempt->hook_status === QuestAttempt::HOOK_NONE,
+        'successful synchronization finishes and scores the attempt'
+    );
+
+    $savedTasks = \common\models\UserTask::find()
+        ->where([
+            'user_id' => $fixture['userId'],
+            'task_id' => $fixture['taskIds'],
+        ])
+        ->orderBy(['task_id' => SORT_ASC])
+        ->all();
+
+    check(
+        count($savedTasks) === 2 &&
+        (int)$savedTasks[0]->user_id === $fixture['userId'] &&
+        (int)$savedTasks[1]->user_id === $fixture['userId'] &&
+        (int)$savedTasks[0]->is_complete === 1 &&
+        (int)$savedTasks[1]->is_complete === 1 &&
+        $savedTasks[0]->response_text === 'Synchronized response 1' &&
+        $savedTasks[1]->response_text === 'Synchronized response 2',
+        'synchronized task progress remains owned by the authenticated user'
+    );
+} finally {
+    if (is_array($viiServer)) {
+        stopServer($viiServer);
+    }
+
+    if (is_array($fixture)) {
+        cleanupFixture($fixture);
+    }
+}
+
 section('Database and model bootstrap');
 
 check(
