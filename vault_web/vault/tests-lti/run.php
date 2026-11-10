@@ -1682,6 +1682,129 @@ try {
     }
 }
 
+section('Gateway and attempt input validation');
+
+$fixture = null;
+$viiServer = null;
+
+try {
+    $fixture = createFixture();
+    $viiPort = freePort();
+
+    $viiServer = startServer(
+        $viiPort,
+        [
+            '-t',
+            $root . '/frontend/web',
+            $root . '/frontend/web/index.php',
+        ],
+        ['GATEWAY_API_KEY' => '']
+    );
+
+    $baseUrl = "http://127.0.0.1:{$viiPort}";
+    $apiUrl = $baseUrl . '/api';
+
+    [$status, $response] = http(
+        'GET',
+        $baseUrl . '/gateway/experiences'
+    );
+
+    check(
+        $status === 503 &&
+        ($response['returnCode'] ?? null) === 1,
+        'gateway endpoint fails closed without a configured key'
+    );
+
+    [$status, $response] = http(
+        'POST',
+        $apiUrl . '/authenticate',
+        [
+            'type' => 'basic',
+            'username' => $fixture['username'],
+            'password' => $fixture['password'],
+        ]
+    );
+
+    $accessToken =
+        (string)($response['data']['oauth']['access_token'] ?? '');
+
+    if ($status !== 200 || $accessToken === '') {
+        throw new \RuntimeException(
+            'Could not authenticate the validation-test user.'
+        );
+    }
+
+    [$status, $response] = http(
+        'POST',
+        $apiUrl . '/start-attempt',
+        ['quest_id' => 0],
+        [],
+        $accessToken
+    );
+
+    check(
+        $status === 200 &&
+        ($response['returnCode'] ?? null) === 1 &&
+        ($response['returnCodeDescription'] ?? null) ===
+            'Invalid parameter: quest_id',
+        'start-attempt rejects an invalid quest identifier'
+    );
+
+    [$status, $response] = http(
+        'POST',
+        $apiUrl . '/start-attempt',
+        [
+            'quest_id' => $fixture['questId'],
+            'launch_ref' => 'bad!',
+        ],
+        [],
+        $accessToken
+    );
+
+    check(
+        $status === 200 &&
+        ($response['returnCode'] ?? null) === 1 &&
+        ($response['returnCodeDescription'] ?? null) ===
+            'Invalid parameter: launch_ref',
+        'start-attempt rejects an invalid launch reference'
+    );
+
+    [$status] = http(
+        'GET',
+        $apiUrl . '/start-attempt?' . http_build_query([
+            'quest_id' => $fixture['questId'],
+        ]),
+        [],
+        [],
+        $accessToken
+    );
+
+    check(
+        $status === 405,
+        'start-attempt rejects non-POST requests'
+    );
+
+    $attemptCount = QuestAttempt::find()
+        ->where([
+            'user_id' => $fixture['userId'],
+            'quest_id' => $fixture['questId'],
+        ])
+        ->count();
+
+    check(
+        (int)$attemptCount === 0,
+        'invalid attempt requests create no database records'
+    );
+} finally {
+    if (is_array($viiServer)) {
+        stopServer($viiServer);
+    }
+
+    if (is_array($fixture)) {
+        cleanupFixture($fixture);
+    }
+}
+
 section('Database and model bootstrap');
 
 check(
