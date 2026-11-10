@@ -103,5 +103,65 @@ check(
     '400, 401 and 410 are permanent failures'
 );
 
+
+section('Hook signatures');
+
+$testSecret = str_repeat('s', 40);
+$testNow = 1700000000;
+$testTimestamp = (string)$testNow;
+$testBody = '{"a":1}';
+$testSignature = HookSigner::sign($testSecret, $testTimestamp, $testBody);
+
+check(
+    $testSignature ===
+        'v1=4ab1624864e534a353376c6a31fafddc42734bc3665577aa2f32a854ef0645e2',
+    'signature matches an independently calculated HMAC'
+);
+
+check(
+    HookSigner::verify(
+        $testSecret, $testTimestamp, $testBody, $testSignature, $testNow
+    ),
+    'valid signature is accepted'
+);
+
+check(
+    !HookSigner::verify(
+        $testSecret, $testTimestamp, '{"a":2}', $testSignature, $testNow
+    ),
+    'changed body is rejected'
+);
+
+check(
+    !HookSigner::verify(
+        $testSecret, $testTimestamp, $testBody,
+        'v1=' . str_repeat('0', 64), $testNow
+    ),
+    'forged signature is rejected'
+);
+
+check(
+    !HookSigner::verify(
+        $testSecret, $testTimestamp, $testBody, $testSignature, $testNow + 301
+    ) &&
+    !HookSigner::verify(
+        $testSecret, $testTimestamp, $testBody, $testSignature, $testNow - 301
+    ),
+    'timestamps outside the five-minute window are rejected'
+);
+
+$shortSecretRejected = false;
+
+try {
+    HookSigner::sign('short', $testTimestamp, $testBody);
+} catch (\InvalidArgumentException $e) {
+    $shortSecretRejected = true;
+}
+
+check(
+    $shortSecretRejected,
+    'secrets shorter than 32 characters are rejected'
+);
+
 echo "\n{$passed} passed, {$failures} failed\n";
 exit($failures > 0 ? 1 : 0);
