@@ -530,14 +530,8 @@ class ApiController extends \yii\web\Controller
 			];	
 		}
 
-		foreach($quest->getActiveTasks() as $task){
-			$userTask = UserTask::findOne(["task_id"=>$task->id, "user_id"=>$user_id]);
-			if($userTask != NULL){
-				$userTask->is_complete = 0;
-				if(!$userTask->save()){
-				}
-			}
-		}
+		// Preserve the previous attempt and reset progress for a new one.
+        QuestAttempt::restart($user_id, $quest->id);
 
 		$questArray = Quest::find()
 								->where(["quest.id"=>$quest_id])
