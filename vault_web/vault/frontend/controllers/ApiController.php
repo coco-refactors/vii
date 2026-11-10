@@ -735,4 +735,26 @@ class ApiController extends \yii\web\Controller
             ],
         ];
     }
+
+	 /** Check affected quests and deliver newly finished attempts. */
+    private static function finishAttemptsFor($userId, $taskIds)
+    {
+        if ((int)$userId !== (int)\Yii::$app->user->id || empty($taskIds)) {
+            return;
+        }
+
+        $questIds = \common\models\Task::find()
+            ->select('quest_id')
+            ->distinct()
+            ->where(['id' => $taskIds])
+            ->column();
+
+        foreach ($questIds as $questId) {
+            $attempt = QuestAttempt::finishIfComplete($userId, $questId);
+
+            if ($attempt !== null) {
+                GatewayHook::sendFinished($attempt);
+            }
+        }
+    }
 }
