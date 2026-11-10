@@ -15,6 +15,7 @@ use common\models\TaskMeta;
 use common\models\ArTarget;
 use common\models\UserEvent;
 use common\models\RequiredTask;
+use common\models\QuestAttempt;
 
 class ApiController extends \yii\web\Controller
 {
@@ -672,4 +673,67 @@ class ApiController extends \yii\web\Controller
 			], 
 		];
 	}
+
+	/**
+     * Start or resume an attempt for the authenticated user.
+     * Call before download-quest because a new attempt can reset progress.
+     */
+    public function actionStartAttempt()
+    {
+        if (!\Yii::$app->request->isPost) {
+            throw new \yii\web\MethodNotAllowedHttpException('Use POST for this endpoint.');
+        }
+
+        $questId = filter_var(
+            \Yii::$app->request->post('quest_id'),
+            FILTER_VALIDATE_INT,
+            ['options' => ['min_range' => 1]]
+        );
+
+        if ($questId === false) {
+            return [
+                'returnCode' => 1,
+                'returnCodeDescription' => 'Invalid parameter: quest_id',
+                'data' => [],
+            ];
+        }
+
+        $launchRef = \Yii::$app->request->post('launch_ref');
+        $launchRef = ($launchRef === null || $launchRef === '') ? null : $launchRef;
+
+        if ($launchRef !== null && (
+            !is_string($launchRef) ||
+            !preg_match(QuestAttempt::LAUNCH_REF_PATTERN, $launchRef)
+        )) {
+            return [
+                'returnCode' => 1,
+                'returnCodeDescription' => 'Invalid parameter: launch_ref',
+                'data' => [],
+            ];
+        }
+
+        $quest = Quest::findOne(['id' => $questId, 'is_active' => 1]);
+        if ($quest === null) {
+            return [
+                'returnCode' => 1,
+                'returnCodeDescription' => 'Error: Quest was not found.',
+                'data' => [],
+            ];
+        }
+
+        list($attempt, $isNew) = QuestAttempt::start(
+            \Yii::$app->user->id,
+            $quest->id,
+            $launchRef
+        );
+
+        return [
+            'returnCode' => 0,
+            'returnCodeDescription' => 'success',
+            'data' => [
+                'attempt' => $attempt->toStateArray(),
+                'isNew' => $isNew,
+            ],
+        ];
+    }
 }
