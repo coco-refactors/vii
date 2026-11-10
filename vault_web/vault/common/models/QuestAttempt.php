@@ -276,4 +276,31 @@ class QuestAttempt extends ActiveRecord
             return $this;
         });
     }
+
+    /** Finish the open attempt when all active tasks are complete. */
+    public static function finishIfComplete($userId, $questId)
+    {
+        return self::getDb()->transaction(function ($db) use ($userId, $questId) {
+            $user = $db->createCommand(
+                'SELECT id FROM {{%user}} WHERE id = :id FOR UPDATE',
+                [':id' => $userId]
+            )->queryScalar();
+
+            if ($user === false) {
+                throw new \RuntimeException('Attempt user was not found.');
+            }
+
+            $open = self::findOpen($userId, $questId);
+            if ($open === null) {
+                return null;
+            }
+
+            list($completed, $total) = self::taskCounts($userId, $questId);
+            if ($total === 0 || $completed < $total) {
+                return null;
+            }
+
+            return $open->finish();
+        });
+    }
 }
