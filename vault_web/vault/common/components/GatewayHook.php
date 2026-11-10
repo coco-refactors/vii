@@ -138,4 +138,73 @@ class GatewayHook
 
         return [$status, $error];
     }
+
+    /** Deliver a pending finished hook and save its delivery status. */
+    public static function sendFinished(QuestAttempt $attempt)
+    {
+        if (!self::isConfigured()) {
+            return false;
+        }
+
+        return QuestAttempt::getDb()->transaction(function ($db) use ($attempt) {
+            $id = $db->createCommand(
+                'SELECT id FROM `quest_attempt` WHERE id = :id FOR UPDATE',
+                [':id' => $attempt->id]
+            )->queryScalar();
+
+            if ($id === false || !$attempt->refresh() ||
+                $attempt->hook_status !== QuestAttempt::HOOK_PENDING) {
+                return false;
+            }
+
+            if ($attempt->next_retry_at &&
+                strtotime($attempt->next_retry_at) > time()) {
+                return false;
+            }
+
+            list($status, $error) = self::post(
+                self::buildPayload($attempt, 'attempt.finished')
+            );
+            $attempt->hook_tries = (int)$attempt->hook_tries + 1;
+
+            if ($status >= 200 && $status < 300) {
+                $attempt->hook_status = QuestAttempt::HOOK_CONFIRMED;
+                $attempt->next_retry_at = null;
+                $attempt->last_hook_error = null;
+            } elseif (AttemptRules::isRetryable($status) &&
+                $attempt->hook_tries < AttemptRules::MAX_HOOK_TRIES) {
+                $attempt->next_retry_at = date(
+                    'Y-m-d H:i:s',
+                    time() + AttemptRules::backoffSeconds($attempt->hook_tries)
+                );
+                $attempt->last_hook_error = $error;
+
+                Yii::warning(
+                    "Gateway hook for attempt {$attempt->id} not delivered ({$error}); retry scheduled.",
+                    __METHOD__
+                );
+            } else {
+                $attempt->hook_status = QuestAttempt::HOOK_FAILED;
+                $attempt->next_retry_at = null;
+                $attempt->last_hook_error = $error;
+
+                Yii::error(
+                    "Gateway hook for attempt {$attempt->id} failed ({$error}) after {$attempt->hook_tries} tries.",
+                    __METHOD__
+                );
+            }
+
+            if (!$attempt->save(false, [
+                'hook_status',
+                'hook_tries',
+                'next_retry_at',
+                'last_hook_error',
+                'updated_at',
+            ])) {
+                throw new \RuntimeException('Could not save hook delivery status.');
+            }
+
+            return $attempt->hook_status === QuestAttempt::HOOK_CONFIRMED;
+        });
+    }
 }
