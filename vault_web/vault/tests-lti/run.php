@@ -233,6 +233,112 @@ function stopServer(array $server)
     }
 }
 
+function saveFixtureModel($model, $label)
+{
+    if (!$model->save()) {
+        throw new \RuntimeException(
+            $label . ' could not be saved: ' .
+            json_encode($model->getErrors())
+        );
+    }
+}
+
+function createFixture()
+{
+    $transaction = Yii::$app->db->beginTransaction();
+
+    try {
+        $userTypeId = (int)Yii::$app->db->createCommand(
+            'SELECT id FROM {{%user_type}} ORDER BY id LIMIT 1'
+        )->queryScalar();
+
+        $taskTypeId = (int)Yii::$app->db->createCommand(
+            'SELECT id FROM {{%task_type}} ORDER BY id LIMIT 1'
+        )->queryScalar();
+
+        if ($userTypeId <= 0 || $taskTypeId <= 0) {
+            throw new \RuntimeException(
+                'Starter user and task types must be loaded before testing.'
+            );
+        }
+
+        $suffix = bin2hex(random_bytes(6));
+        $password = 'test-password-' . $suffix;
+
+        $user = new User();
+        $user->user_type_id = $userTypeId;
+        $user->username = 'lti-test-' . $suffix;
+        $user->email = 'lti-test-' . $suffix . '@example.test';
+        $user->status = User::STATUS_ACTIVE;
+        $user->auth_key = Yii::$app->security->generateRandomString();
+        $user->setPassword($password);
+        saveFixtureModel($user, 'Test user');
+
+        $quest = new Quest();
+        $quest->code = 'lti-' . $suffix;
+        $quest->name = 'LTI Test Quest ' . $suffix;
+        $quest->description = 'Temporary Sprint 4 integration fixture';
+        $quest->is_active = 1;
+        saveFixtureModel($quest, 'Test quest');
+
+        $taskIds = [];
+
+        foreach (
+            [
+                ['First test task', '<p>First test prompt</p>', 'private-answer-one'],
+                ['Second test task', '<p>Second test prompt</p>', 'private-answer-two'],
+            ] as $index => $values
+        ) {
+            $task = new Task();
+            $task->quest_id = $quest->id;
+            $task->task_type_id = $taskTypeId;
+            $task->title = $values[0];
+            $task->body = $values[1];
+            $task->answer = $values[2];
+            $task->auto_complete = 0;
+            $task->is_active = 1;
+            $task->sort_order = $index + 1;
+            saveFixtureModel($task, 'Test task');
+
+            $taskIds[] = (int)$task->id;
+        }
+
+        $transaction->commit();
+
+        return [
+            'userId' => (int)$user->id,
+            'username' => $user->username,
+            'password' => $password,
+            'questId' => (int)$quest->id,
+            'questName' => $quest->name,
+            'taskIds' => $taskIds,
+        ];
+    } catch (\Throwable $error) {
+        $transaction->rollBack();
+        throw $error;
+    }
+}
+
+function cleanupFixture(array $fixture)
+{
+    $transaction = Yii::$app->db->beginTransaction();
+
+    try {
+        if (!empty($fixture['questId'])) {
+            Quest::deleteAll(['id' => (int)$fixture['questId']]);
+        }
+
+        if (!empty($fixture['userId'])) {
+            User::deleteAll(['id' => (int)$fixture['userId']]);
+        }
+
+        $transaction->commit();
+    } catch (\Throwable $error) {
+        $transaction->rollBack();
+        throw $error;
+    }
+}
+
 section('Fake gateway test server');
 
 $fakeGatewayDirectory =
@@ -305,6 +411,7 @@ section('Protected gateway experiences endpoint');
 $gatewayKey = str_repeat('k', 40);
 $viiPort = freePort();
 $viiServer = null;
+$fixture = createFixture();
 
 try {
     $viiServer = startServer(
@@ -359,6 +466,24 @@ try {
         'experiences accepts the configured gateway key'
     );
 
+    $fixtureExperiences = array_values(array_filter(
+        $response['data']['experiences'],
+        function ($experience) use ($fixture) {
+            return (int)($experience['id'] ?? 0) === $fixture['questId'];
+        }
+    ));
+
+    check(
+        count($fixtureExperiences) === 1 &&
+        $fixtureExperiences[0]['name'] === $fixture['questName'] &&
+        array_keys($fixtureExperiences[0]) === [
+            'id',
+            'name',
+            'description',
+        ],
+        'experiences returns the active fixture with public fields only'
+    );
+
     [$status, $response] = http(
         'POST',
         $experiencesUrl,
@@ -370,11 +495,22 @@ try {
         $status === 405,
         'experiences rejects non-GET requests'
     );
+    
 } finally {
-    if (is_array($viiServer)) {
-        stopServer($viiServer);
+    try {
+        if (is_array($viiServer)) {
+            stopServer($viiServer);
+        }
+    } finally {
+        cleanupFixture($fixture);
     }
 }
+
+check(
+    Quest::findOne($fixture['questId']) === null &&
+    User::findOne($fixture['userId']) === null,
+    'temporary integration fixtures are removed'
+);
 
 section('Database and model bootstrap');
 
