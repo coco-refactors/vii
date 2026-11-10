@@ -616,6 +616,183 @@ try {
     }
 }
 
+section('First-attempt progress hook');
+
+$fakeGatewayDirectory =
+    sys_get_temp_dir() . '/vii-start-hook-' . bin2hex(random_bytes(6));
+$fixture = null;
+$fakeGatewayServer = null;
+$viiServer = null;
+$hookSecret = str_repeat('h', 40);
+
+if (!mkdir($fakeGatewayDirectory, 0700, true)) {
+    throw new \RuntimeException('Could not create the hook test directory.');
+}
+
+try {
+    $fixture = createFixture();
+
+    if (
+        file_put_contents($fakeGatewayDirectory . '/mode', '200') === false
+    ) {
+        throw new \RuntimeException('Could not configure the fake gateway.');
+    }
+
+    $fakeGatewayPort = freePort();
+    $viiPort = freePort();
+
+    $fakeGatewayServer = startServer(
+        $fakeGatewayPort,
+        ['tests-lti/fake-gateway.php'],
+        ['FAKE_GW_DIR' => $fakeGatewayDirectory]
+    );
+
+    $viiServer = startServer(
+        $viiPort,
+        [
+            '-t',
+            $root . '/frontend/web',
+            $root . '/frontend/web/index.php',
+        ],
+        [
+            'GATEWAY_API_KEY' => str_repeat('k', 40),
+            'GATEWAY_HOOK_URL' =>
+                "http://127.0.0.1:{$fakeGatewayPort}/hooks/attempts",
+            'GATEWAY_HOOK_SECRET' => $hookSecret,
+        ]
+    );
+
+    $apiUrl = "http://127.0.0.1:{$viiPort}/api";
+
+    [$status, $response] = http(
+        'POST',
+        $apiUrl . '/authenticate',
+        [
+            'type' => 'basic',
+            'username' => $fixture['username'],
+            'password' => $fixture['password'],
+        ]
+    );
+
+    $accessToken =
+        (string)($response['data']['oauth']['access_token'] ?? '');
+
+    if ($status !== 200 || $accessToken === '') {
+        throw new \RuntimeException(
+            'Could not authenticate the progress-hook fixture.'
+        );
+    }
+
+    $launchRef = 'launch-' . bin2hex(random_bytes(8));
+
+    [$status, $response] = http(
+        'POST',
+        $apiUrl . '/start-attempt',
+        [
+            'quest_id' => $fixture['questId'],
+            'launch_ref' => $launchRef,
+        ],
+        [],
+        $accessToken
+    );
+
+    $attemptData = $response['data']['attempt'] ?? [];
+    $attemptId = (int)($attemptData['id'] ?? 0);
+
+    check(
+        $status === 200 &&
+        ($response['data']['isNew'] ?? null) === true &&
+        $attemptId > 0,
+        'launch reference creates a new first attempt'
+    );
+
+    $storedAttempt = QuestAttempt::findOne($attemptId);
+
+    check(
+        $storedAttempt !== null &&
+        (int)$storedAttempt->progress_sent === 1,
+        'successful started hook is marked as sent'
+    );
+
+    [$status, $response] = http(
+        'POST',
+        $apiUrl . '/start-attempt',
+        [
+            'quest_id' => $fixture['questId'],
+            'launch_ref' => $launchRef,
+        ],
+        [],
+        $accessToken
+    );
+
+    check(
+        $status === 200 &&
+        ($response['data']['isNew'] ?? null) === false &&
+        (int)($response['data']['attempt']['id'] ?? 0) === $attemptId,
+        'resuming the attempt does not create another attempt'
+    );
+
+    $recordFiles = glob($fakeGatewayDirectory . '/req-*.json') ?: [];
+    sort($recordFiles);
+
+    check(
+        count($recordFiles) === 1,
+        'first-attempt progress hook is delivered exactly once'
+    );
+
+    $record = count($recordFiles) === 1
+        ? json_decode((string)file_get_contents($recordFiles[0]), true)
+        : null;
+
+    $hookBody = is_array($record)
+        ? (string)($record['body'] ?? '')
+        : '';
+    $hookPayload = json_decode($hookBody, true);
+
+    check(
+        is_array($hookPayload) &&
+        ($record['path'] ?? null) === '/hooks/attempts' &&
+        ($hookPayload['event'] ?? null) === 'attempt.started' &&
+        ($hookPayload['launchRef'] ?? null) === $launchRef &&
+        ($hookPayload['viiUsername'] ?? null) === $fixture['username'] &&
+        (int)($hookPayload['questId'] ?? 0) === $fixture['questId'] &&
+        (int)($hookPayload['attempt']['number'] ?? 0) === 1 &&
+        ($hookPayload['activityProgress'] ?? null) === 'Started' &&
+        !array_key_exists('score', $hookPayload) &&
+        !array_key_exists('content', $hookPayload),
+        'started hook contains progress metadata without score content'
+    );
+
+    check(
+        is_array($record) &&
+        HookSigner::verify(
+            $hookSecret,
+            (string)($record['timestamp'] ?? ''),
+            $hookBody,
+            (string)($record['signature'] ?? '')
+        ),
+        'started hook signature validates against its exact body'
+    );
+} finally {
+    if (is_array($viiServer)) {
+        stopServer($viiServer);
+    }
+
+    if (is_array($fakeGatewayServer)) {
+        stopServer($fakeGatewayServer);
+    }
+
+    if (is_array($fixture)) {
+        cleanupFixture($fixture);
+    }
+
+    foreach (glob($fakeGatewayDirectory . '/*') ?: [] as $file) {
+        @unlink($file);
+    }
+
+    @rmdir($fakeGatewayDirectory);
+}
+
 section('Database and model bootstrap');
 
 check(
