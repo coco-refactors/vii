@@ -58,6 +58,87 @@ All commands below are run from `vault_web/` unless noted.
 
    Change or remove this account before using the instance for anything real.
 
+## Canvas gateway integration
+
+The Canvas gateway uses a shared API key for read-only Vii endpoints and a
+separate secret for signed attempt hooks.
+
+Set these values in the deployment environment before creating or restarting
+the `vault` container:
+
+```powershell
+$env:GATEWAY_API_KEY = "<random value of at least 32 characters>"
+$env:GATEWAY_HOOK_URL = "https://gateway.example/hooks/vii"
+$env:GATEWAY_HOOK_SECRET = "<different random value of at least 32 characters>"
+
+docker compose up -d --build vault
+```
+
+- `GATEWAY_API_KEY` must match the key configured by the gateway.
+- `GATEWAY_HOOK_URL` should use HTTPS in production.
+- `GATEWAY_HOOK_SECRET` is shared with the gateway for HMAC-SHA256 signatures.
+- Do not commit these values. Rotate them immediately if they are exposed.
+- Missing or short credentials cause the integration endpoints to fail closed.
+
+Apply the attempt table migration after loading the base schema:
+
+```bash
+docker compose cp Database/migrations/create_quest_attempt.sql mysql:/tmp/create_quest_attempt.sql
+docker compose exec -T mysql sh -c \
+  'mariadb -uyii2advanced -psecret yii2advanced < /tmp/create_quest_attempt.sql'
+```
+
+The protected gateway endpoints are:
+
+- `GET /gateway/experiences`
+- `GET /gateway/attempt-state?username=...&quest_id=...`
+
+Both require the `X-Gateway-Key` request header.
+
+Attempt hooks include `X-Vii-Timestamp` and `X-Vii-Signature` headers. The
+signature covers the exact request body and is valid for five minutes.
+
+### Retry pending hooks
+
+Verify the retry command manually:
+
+```bash
+docker compose exec -T vault php yii gateway-hook/resend 50
+```
+
+Run it once per minute in production. For example, a Linux host cron entry is:
+
+```cron
+* * * * * cd /absolute/path/to/vault_web && /usr/bin/docker compose exec -T vault php yii gateway-hook/resend 50 >> /var/log/vii-gateway-hook.log 2>&1
+```
+
+Use one scheduler per deployment. The command prints the number of due and
+confirmed deliveries. Retryable failures use delays of 1, 2, 5, 10, and 30
+minutes, followed by hourly attempts, with a maximum of 10 tries. Permanent
+client failures such as HTTP 400, 401, and 410 are not retried.
+
+On Windows, create a Task Scheduler action that runs once per minute:
+
+```text
+Program: powershell.exe
+Arguments: -NoProfile -Command "Set-Location 'C:\path\to\vault_web'; docker compose exec -T vault php yii gateway-hook/resend 50"
+```
+
+### Integration tests
+
+The integration suite is intended only for the local demo database. It creates
+temporary users, quests, tasks, attempts, and hook records, then removes them:
+
+```bash
+docker compose run --rm --no-deps vault php tests-lti/run.php
+```
+
+Current limitation: a retried completion hook rebuilds readable task responses
+from the current `user_task` rows. If task progress is reset or edited before a
+pending hook is confirmed, the retried content may differ from the original
+completion while the stored score remains unchanged. Freezing historical
+responses requires a separate data-retention and schema decision.
+
 ## Google OAuth setup (optional)
 
 Only needed for the "Sign in with Google" button. If you skip it, leave the two files below unconfigured; the Google
