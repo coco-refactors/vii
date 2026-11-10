@@ -233,6 +233,73 @@ function stopServer(array $server)
     }
 }
 
+section('Fake gateway test server');
+
+$fakeGatewayDirectory =
+    sys_get_temp_dir() . '/vii-fake-gateway-' . bin2hex(random_bytes(6));
+$fakeGatewayServer = null;
+
+if (!mkdir($fakeGatewayDirectory, 0700, true)) {
+    throw new \RuntimeException('Could not create the fake gateway directory.');
+}
+
+try {
+    if (
+        file_put_contents($fakeGatewayDirectory . '/mode', '200') === false
+    ) {
+        throw new \RuntimeException('Could not configure the fake gateway.');
+    }
+
+    $fakeGatewayPort = freePort();
+    $fakeGatewayServer = startServer(
+        $fakeGatewayPort,
+        ['tests-lti/fake-gateway.php'],
+        ['FAKE_GW_DIR' => $fakeGatewayDirectory]
+    );
+
+    [$status, $response] = http(
+        'POST',
+        "http://127.0.0.1:{$fakeGatewayPort}/hooks/attempts",
+        ['probe' => 'ready']
+    );
+
+    check(
+        $status === 200 &&
+        is_array($response) &&
+        ($response['ok'] ?? false) === true,
+        'fake gateway accepts an HTTP request'
+    );
+
+    $recordFiles = glob($fakeGatewayDirectory . '/req-*.json') ?: [];
+    sort($recordFiles);
+
+    check(
+        count($recordFiles) === 1,
+        'fake gateway records one request'
+    );
+
+    $record = count($recordFiles) === 1
+        ? json_decode((string)file_get_contents($recordFiles[0]), true)
+        : null;
+
+    check(
+        is_array($record) &&
+        ($record['path'] ?? null) === '/hooks/attempts' &&
+        ($record['body'] ?? null) === 'probe=ready',
+        'fake gateway records the request path and body'
+    );
+} finally {
+    if (is_array($fakeGatewayServer)) {
+        stopServer($fakeGatewayServer);
+    }
+
+    foreach (glob($fakeGatewayDirectory . '/*') ?: [] as $file) {
+        @unlink($file);
+    }
+
+    @rmdir($fakeGatewayDirectory);
+}
+
 section('Database and model bootstrap');
 
 check(
