@@ -76,4 +76,66 @@ class GatewayHook
 
         return $payload;
     }
+
+    /** Return [HTTP status, short diagnostic]; status 0 means delivery failed. */
+    public static function post(array $payload)
+    {
+        if (!self::isConfigured()) {
+            return [0, 'Hook is not configured'];
+        }
+
+        if (!function_exists('curl_init')) {
+            return [0, 'cURL extension is unavailable'];
+        }
+
+        // A fresh delivery ID prevents retries from sharing a signature.
+        $payload['deliveryId'] = bin2hex(random_bytes(8));
+        $body = json_encode(
+            $payload,
+            JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
+        );
+
+        if ($body === false) {
+            return [422, 'Hook JSON encoding failed'];
+        }
+
+        $timestamp = (string)time();
+        $signature = HookSigner::sign(
+            Yii::$app->params['gateway.hookSecret'],
+            $timestamp,
+            $body
+        );
+
+        $ch = curl_init(Yii::$app->params['gateway.hookUrl']);
+        if ($ch === false) {
+            return [0, 'Could not initialize hook request'];
+        }
+
+        $configured = curl_setopt_array($ch, [
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => $body,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_CONNECTTIMEOUT => 3,
+            CURLOPT_TIMEOUT => 8,
+            CURLOPT_HTTPHEADER => [
+                'Content-Type: application/json',
+                'X-Vii-Timestamp: ' . $timestamp,
+                'X-Vii-Signature: ' . $signature,
+            ],
+        ]);
+
+        if (!$configured) {
+            return [0, 'Could not configure hook request'];
+        }
+
+        $response = curl_exec($ch);
+        $status = $response === false
+            ? 0
+            : (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $error = $response === false
+            ? 'cURL error ' . curl_errno($ch)
+            : 'HTTP ' . $status;
+
+        return [$status, $error];
+    }
 }
