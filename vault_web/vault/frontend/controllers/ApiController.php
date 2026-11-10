@@ -651,6 +651,7 @@ class ApiController extends \yii\web\Controller
 			$userTasks = [$userTasks];
 		}
 
+		$userId = (int)\Yii::$app->user->id;
 		$tasksNotSaved = [];
 		$savedTaskIds = [];
 		foreach($userTasks as $utsq){
@@ -658,10 +659,18 @@ class ApiController extends \yii\web\Controller
 			$userTaskId = $json->id;
 			$jsonUserTask = json_decode($json->json,true);
 			$userTask = UserTask::findOne($jsonUserTask["id"]);
+
+			if ($userTask !== null && (int)$userTask->user_id !== $userId) {
+				throw new \yii\web\ForbiddenHttpException(
+					'You can only save your own task progress.'
+				);
+			}
+
 			if($userTask == NULL){
 				$userTask = new UserTask();
 			}
 			if ($userTask->load(["FormName"=>$jsonUserTask], "FormName")) {
+				$userTask->user_id = $userId;
 				if($userTask->created_at == "" || $userTask->created_at == "0000-00-00 00:00:00" || $userTask->created_at == null){
 					$userTask->created_at = date("Y-m-d H:i:s");
 				}
