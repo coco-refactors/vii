@@ -207,4 +207,45 @@ class GatewayHook
             return $attempt->hook_status === QuestAttempt::HOOK_CONFIRMED;
         });
     }
+
+    /** Send a best-effort progress notification for the first attempt only. */
+    public static function sendStarted(QuestAttempt $attempt)
+    {
+        if (!self::isConfigured()) {
+            return false;
+        }
+
+        return QuestAttempt::getDb()->transaction(function ($db) use ($attempt) {
+            $id = $db->createCommand(
+                'SELECT id FROM `quest_attempt` WHERE id = :id FOR UPDATE',
+                [':id' => $attempt->id]
+            )->queryScalar();
+
+            if ($id === false || !$attempt->refresh()) {
+                return false;
+            }
+
+            if (!$attempt->launch_ref ||
+                (int)$attempt->attempt_number !== 1 ||
+                $attempt->progress_sent ||
+                $attempt->status !== QuestAttempt::STATUS_OPEN) {
+                return false;
+            }
+
+            list($status) = self::post(
+                self::buildPayload($attempt, 'attempt.started')
+            );
+
+            if ($status < 200 || $status >= 300) {
+                return false;
+            }
+
+            $attempt->progress_sent = 1;
+            if (!$attempt->save(false, ['progress_sent', 'updated_at'])) {
+                throw new \RuntimeException('Could not save started hook status.');
+            }
+
+            return true;
+        });
+    }
 }
