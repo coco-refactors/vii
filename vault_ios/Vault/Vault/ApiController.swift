@@ -87,7 +87,10 @@ class ApiController {
     private static var Manager: Session = {
         let evaluators: [String: ServerTrustEvaluating] = [:]
         let configuration = URLSessionConfiguration.af.default
-        let serverTrustManager = ServerTrustManager(evaluators: evaluators)
+        // allHostsMustBeEvaluated defaults to true, which rejects every host that has
+        // no entry in `evaluators` (noRequiredEvaluator) — with the empty list above,
+        // that is every request. false gives unlisted hosts the system's standard check.
+        let serverTrustManager = ServerTrustManager(allHostsMustBeEvaluated: false, evaluators: evaluators)
         return Session(configuration: configuration, serverTrustManager: serverTrustManager)
     }()
     
