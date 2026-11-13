@@ -8,7 +8,10 @@
 
 import UIKit
 import CoreData
+// Google Sign-In is switched off for now (see the note in the Podfile).
+#if canImport(GoogleSignIn)
 import GoogleSignIn
+#endif
 import SideMenu
 
 @UIApplicationMain
@@ -25,8 +28,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // client_secret.json.example / google_credentials.json.example in vault_web
         // for the matching backend-side setup). clientID is this app's iOS OAuth
         // client; serverClientID is the web client used by your backend.
+        #if canImport(GoogleSignIn)
         GIDSignIn.sharedInstance().clientID = "YOUR_IOS_CLIENT_ID.apps.googleusercontent.com"
         GIDSignIn.sharedInstance().serverClientID = "YOUR_SERVER_CLIENT_ID.apps.googleusercontent.com";
+        #endif
         debugLog("Documents Directory: ", FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).last ?? "Not Found!")
 
         let storyboard = UIStoryboard(name: "Main", bundle: nil)
@@ -36,7 +41,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
     
     func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey : Any] = [:]) -> Bool {
+        #if canImport(GoogleSignIn)
         return GIDSignIn.sharedInstance().handle(url)
+        #else
+        return false
+        #endif
     }
 
     func applicationWillResignActive(_ application: UIApplication) {

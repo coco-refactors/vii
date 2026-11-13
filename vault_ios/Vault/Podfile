@@ -14,7 +14,11 @@ target 'Vault' do
   pod 'AlamofireImage', '~> 4'
   pod 'NVActivityIndicatorView'
   pod 'SwiftyJSON', '~> 5.0'
-  pod 'GoogleSignIn', '~> 5.0.2'
+  # Google Sign-In is switched off for now: GoogleSignIn 5.0.2 pulls in GTMAppAuth and
+  # GTMSessionFetcher builds that have no privacy manifest, which Apple rejects (ITMS-91061).
+  # To bring it back, add a current GoogleSignIn here (7.1 or later ships manifests) and
+  # update the code behind `#if canImport(GoogleSignIn)` to the new API.
+  # pod 'GoogleSignIn', '~> 5.0.2'
   pod 'ObjectMapper', '~> 4.4.2'
   pod 'Parchment', '~> 3.2'
   pod 'SwiftMessages', '~> 7.0.0'

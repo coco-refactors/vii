@@ -144,7 +144,7 @@
                                     <action selector="googleLoginButtonTouched:" destination="BYZ-38-t0r" eventType="touchUpInside" id="rrI-OI-Hd9"/>
                                 </connections>
                             </button>
-                            <view hidden="YES" contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="tEZ-82-Qct" customClass="GIDSignInButton">
+                            <view hidden="YES" contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="tEZ-82-Qct">
                                 <rect key="frame" x="107" y="530" width="200" height="40"/>
                                 <color key="backgroundColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                                 <constraints>

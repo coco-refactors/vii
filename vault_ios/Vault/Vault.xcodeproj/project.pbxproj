@@ -12,6 +12,7 @@
 		799A73B274FCC8D6379C1831 /* Pods_Vault.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 028ED94C54FA29E5E645A95C /* Pods_Vault.framework */; };
 		913E7CAB28790A41002C4BBA /* ARViewController+Gif.swift in Sources */ = {isa = PBXBuildFile; fileRef = 913E7CAA28790A41002C4BBA /* ARViewController+Gif.swift */; };
 		915C0CAE3047843A002CD109 /* DebugLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 915C0CAD3047843A002CD109 /* DebugLog.swift */; };
+		C0C0A11F2EC50001000A11F1 /* PanoramaView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0C0A11E2EC50001000A11E1 /* PanoramaView.swift */; };
 		D310B4DD224B116A00262B25 /* AudioPlayerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D310B4DC224B116A00262B25 /* AudioPlayerViewController.swift */; };
 		D310B4DF224B251900262B25 /* TimeIntervalExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = D310B4DE224B251900262B25 /* TimeIntervalExtension.swift */; };
 		D313ED5E22E240F100A70E99 /* UserTaskSyncQueue+CoreDataClass.swift in Sources */ = {isa = PBXBuildFile; fileRef = D313ED5C22E240F100A70E99 /* UserTaskSyncQueue+CoreDataClass.swift */; };
@@ -65,7 +66,6 @@
 		D3C4C5AA223C0EEC00C664B2 /* User+CoreDataClass.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3C4C5A6223C0EEC00C664B2 /* User+CoreDataClass.swift */; };
 		D3C4C5AF223C60CC00C664B2 /* User+CoreDataProperties.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3C4C5AD223C60CC00C664B2 /* User+CoreDataProperties.swift */; };
 		D3C4C5B0223C60CC00C664B2 /* Oauth+CoreDataProperties.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3C4C5AE223C60CC00C664B2 /* Oauth+CoreDataProperties.swift */; };
-		C0C0A11F2EC50001000A11F1 /* PanoramaView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0C0A11E2EC50001000A11E1 /* PanoramaView.swift */; };
 		D3EE71C92353772300C7B3AE /* ThreeSixtyImageViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3EE71C82353772300C7B3AE /* ThreeSixtyImageViewController.swift */; };
 		D3FE3DF622584E5D006C9C24 /* ARViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3FE3DF522584E5C006C9C24 /* ARViewController.swift */; };
 		D3FE3DF822584E75006C9C24 /* ARViewController+ARSessionDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3FE3DF722584E75006C9C24 /* ARViewController+ARSessionDelegate.swift */; };
@@ -100,6 +100,7 @@
 		915C0CAD3047843A002CD109 /* DebugLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugLog.swift; sourceTree = "<group>"; };
 		9179DC1426C5C7E6009705CD /* VAuLTDebug.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = VAuLTDebug.entitlements; sourceTree = "<group>"; };
 		9DE116E4D2E0E5F6CD5DC90A /* Pods-VaultTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-VaultTests.debug.xcconfig"; path = "Target Support Files/Pods-VaultTests/Pods-VaultTests.debug.xcconfig"; sourceTree = "<group>"; };
+		C0C0A11E2EC50001000A11E1 /* PanoramaView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PanoramaView.swift; sourceTree = "<group>"; };
 		C3FC03816427374AF5AAE77F /* Pods-Vault.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Vault.release.xcconfig"; path = "Target Support Files/Pods-Vault/Pods-Vault.release.xcconfig"; sourceTree = "<group>"; };
 		D2C4BDC8B0AC4D1DA6AE5B19 /* Pods-VaultUITests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-VaultUITests.debug.xcconfig"; path = "Target Support Files/Pods-VaultUITests/Pods-VaultUITests.debug.xcconfig"; sourceTree = "<group>"; };
 		D310B4DC224B116A00262B25 /* AudioPlayerViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioPlayerViewController.swift; sourceTree = "<group>"; };
@@ -162,7 +163,6 @@
 		D3C4C5A6223C0EEC00C664B2 /* User+CoreDataClass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "User+CoreDataClass.swift"; sourceTree = "<group>"; };
 		D3C4C5AD223C60CC00C664B2 /* User+CoreDataProperties.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "User+CoreDataProperties.swift"; sourceTree = "<group>"; };
 		D3C4C5AE223C60CC00C664B2 /* Oauth+CoreDataProperties.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "Oauth+CoreDataProperties.swift"; sourceTree = "<group>"; };
-		C0C0A11E2EC50001000A11E1 /* PanoramaView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PanoramaView.swift; sourceTree = "<group>"; };
 		D3EE71C82353772300C7B3AE /* ThreeSixtyImageViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreeSixtyImageViewController.swift; sourceTree = "<group>"; };
 		D3FE3DF522584E5C006C9C24 /* ARViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ARViewController.swift; sourceTree = "<group>"; };
 		D3FE3DF722584E75006C9C24 /* ARViewController+ARSessionDelegate.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "ARViewController+ARSessionDelegate.swift"; sourceTree = "<group>"; };
@@ -387,7 +387,6 @@
 				D37BCD7B223992F400ADB1D2 /* Frameworks */,
 				D37BCD7C223992F400ADB1D2 /* Resources */,
 				F713A7CBD692F7472FD8F095 /* [CP] Embed Pods Frameworks */,
-				BF0249CEC812583CA1142E42 /* [CP] Copy Pods Resources */,
 			);
 			buildRules = (
 			);
@@ -554,23 +553,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
-			showEnvVarsInLog = 0;
-		};
-		BF0249CEC812583CA1142E42 /* [CP] Copy Pods Resources */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-Vault/Pods-Vault-resources-${CONFIGURATION}-input-files.xcfilelist",
-			);
-			name = "[CP] Copy Pods Resources";
-			outputFileListPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-Vault/Pods-Vault-resources-${CONFIGURATION}-output-files.xcfilelist",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Vault/Pods-Vault-resources.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
 		D5CAC57D7442AE47252EC2E5 /* [CP] Check Pods Manifest.lock */ = {
@@ -852,7 +834,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = Vault/VAuLTDebug.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				DEVELOPMENT_TEAM = 9PKQQVV26C;
 				INFOPLIST_FILE = Vault/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
@@ -876,7 +858,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = Vault/VaultRelease.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				DEVELOPMENT_TEAM = 9PKQQVV26C;
 				INFOPLIST_FILE = Vault/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
