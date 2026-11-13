@@ -26,7 +26,7 @@ enum Router: URLRequestConvertible {
     
     // TODO: Set this to your self-hosted VAuLT backend URL before building.
     // Example: "https://vault-api.your-domain.example"
-    static var serverURLString = "https://your-vault-api-host.example.com"
+    static var serverURLString = "https://vii-api-production-ba707185.up.railway.app"
     static let baseURLString = serverURLString + "/api"
     static let perPage = 50
     
@@ -87,7 +87,10 @@ class ApiController {
     private static var Manager: Session = {
         let evaluators: [String: ServerTrustEvaluating] = [:]
         let configuration = URLSessionConfiguration.af.default
-        let serverTrustManager = ServerTrustManager(evaluators: evaluators)
+        // allHostsMustBeEvaluated defaults to true, which rejects every host that has
+        // no entry in `evaluators` (noRequiredEvaluator) — with the empty list above,
+        // that is every request. false gives unlisted hosts the system's standard check.
+        let serverTrustManager = ServerTrustManager(allHostsMustBeEvaluated: false, evaluators: evaluators)
         return Session(configuration: configuration, serverTrustManager: serverTrustManager)
     }()
     

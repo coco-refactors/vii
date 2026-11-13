@@ -12,16 +12,10 @@ PODS:
     - AppAuth (~> 1.2)
     - GTMAppAuth (~> 1.0)
     - GTMSessionFetcher/Core (~> 1.1)
-  - GoogleToolboxForMac/Defines (2.3.2)
-  - GoogleToolboxForMac/Logger (2.3.2):
-    - GoogleToolboxForMac/Defines (= 2.3.2)
   - GTMAppAuth (1.3.1):
     - AppAuth/Core (~> 1.6)
     - GTMSessionFetcher/Core (< 3.0, >= 1.5)
   - GTMSessionFetcher/Core (1.7.2)
-  - GVRSDK (1.170.0):
-    - GoogleToolboxForMac/Logger (~> 2.1)
-    - GTMSessionFetcher/Core (~> 1.1)
   - NVActivityIndicatorView (5.2.0):
     - NVActivityIndicatorView/Base (= 5.2.0)
   - NVActivityIndicatorView/Base (5.2.0)
@@ -38,7 +32,6 @@ DEPENDENCIES:
   - Alamofire (~> 5)
   - AlamofireImage (~> 4)
   - GoogleSignIn (~> 5.0.2)
-  - GVRSDK
   - NVActivityIndicatorView
   - ObjectMapper (~> 4.4.2)
   - Parchment (~> 3.2)
@@ -53,10 +46,8 @@ SPEC REPOS:
     - AlamofireImage
     - AppAuth
     - GoogleSignIn
-    - GoogleToolboxForMac
     - GTMAppAuth
     - GTMSessionFetcher
-    - GVRSDK
     - NVActivityIndicatorView
     - ObjectMapper
     - Parchment
@@ -68,12 +59,10 @@ SPEC REPOS:
 SPEC CHECKSUMS:
   Alamofire: 7193b3b92c74a07f85569e1a6c4f4237291e7496
   AlamofireImage: 843953fa97bee5f561cf05d83abd759e590b068d
-  AppAuth: d4f13a8fe0baf391b2108511793e4b479691fb73
-  GoogleSignIn: 7137d297ddc022a7e0aa4619c86d72c909fa7213
-  GoogleToolboxForMac: 8bef7c7c5cf7291c687cf5354f39f9db6399ad34
-  GTMAppAuth: 0ff230db599948a9ad7470ca667337803b3fc4dd
+  AppAuth: 58e37c546bb9bf2073c1392ccba8cef35ff283cb
+  GoogleSignIn: dfda91159d6e3339f4c7c4defa7a686b8380fca3
+  GTMAppAuth: d0586bbaa51de0378f81c62533ccc856c9f9b28f
   GTMSessionFetcher: 5595ec75acf5be50814f81e9189490412bad82ba
-  GVRSDK: 690e9ca3e4d6161b84ff25519447ed2f53e0eb0b
   NVActivityIndicatorView: fe52a6a68664c2df8991d7d9e3d86d8d19453c53
   ObjectMapper: e6e4d91ff7f2861df7aecc536c92d8363f4c9677
   Parchment: 6a62c0cb22c844cabb3e8b0c56136b35d829f0cf
@@ -82,6 +71,6 @@ SPEC CHECKSUMS:
   SwiftMessages: b577dc7043be8b299857ab35bb663dbff6483bd0
   SwiftyJSON: f5b1bf1cd8dd53cd25887ac0eabcfd92301c6a5a
 
-PODFILE CHECKSUM: 979719526192b9eaeec49ff8da57eed62aca4463
+PODFILE CHECKSUM: e8039006ff21bea46d2d6536eeef0237f6a6e0e7
 
-COCOAPODS: 1.16.2
+COCOAPODS: 1.17.0

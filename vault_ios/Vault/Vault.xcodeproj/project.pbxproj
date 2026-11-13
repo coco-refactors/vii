@@ -65,6 +65,7 @@
 		D3C4C5AA223C0EEC00C664B2 /* User+CoreDataClass.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3C4C5A6223C0EEC00C664B2 /* User+CoreDataClass.swift */; };
 		D3C4C5AF223C60CC00C664B2 /* User+CoreDataProperties.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3C4C5AD223C60CC00C664B2 /* User+CoreDataProperties.swift */; };
 		D3C4C5B0223C60CC00C664B2 /* Oauth+CoreDataProperties.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3C4C5AE223C60CC00C664B2 /* Oauth+CoreDataProperties.swift */; };
+		C0C0A11F2EC50001000A11F1 /* PanoramaView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0C0A11E2EC50001000A11E1 /* PanoramaView.swift */; };
 		D3EE71C92353772300C7B3AE /* ThreeSixtyImageViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3EE71C82353772300C7B3AE /* ThreeSixtyImageViewController.swift */; };
 		D3FE3DF622584E5D006C9C24 /* ARViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3FE3DF522584E5C006C9C24 /* ARViewController.swift */; };
 		D3FE3DF822584E75006C9C24 /* ARViewController+ARSessionDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3FE3DF722584E75006C9C24 /* ARViewController+ARSessionDelegate.swift */; };
@@ -161,6 +162,7 @@
 		D3C4C5A6223C0EEC00C664B2 /* User+CoreDataClass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "User+CoreDataClass.swift"; sourceTree = "<group>"; };
 		D3C4C5AD223C60CC00C664B2 /* User+CoreDataProperties.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "User+CoreDataProperties.swift"; sourceTree = "<group>"; };
 		D3C4C5AE223C60CC00C664B2 /* Oauth+CoreDataProperties.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "Oauth+CoreDataProperties.swift"; sourceTree = "<group>"; };
+		C0C0A11E2EC50001000A11E1 /* PanoramaView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PanoramaView.swift; sourceTree = "<group>"; };
 		D3EE71C82353772300C7B3AE /* ThreeSixtyImageViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreeSixtyImageViewController.swift; sourceTree = "<group>"; };
 		D3FE3DF522584E5C006C9C24 /* ARViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ARViewController.swift; sourceTree = "<group>"; };
 		D3FE3DF722584E75006C9C24 /* ARViewController+ARSessionDelegate.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "ARViewController+ARSessionDelegate.swift"; sourceTree = "<group>"; };
@@ -236,6 +238,7 @@
 				D366C2E32353436C002EAB56 /* WebObjectViewController.swift */,
 				D366C2E72353577E002EAB56 /* ThreeSixtyVideoViewController.swift */,
 				D3EE71C82353772300C7B3AE /* ThreeSixtyImageViewController.swift */,
+				C0C0A11E2EC50001000A11E1 /* PanoramaView.swift */,
 			);
 			path = Quests;
 			sourceTree = "<group>";
@@ -561,13 +564,9 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-Vault/Pods-Vault-resources-${CONFIGURATION}-input-files.xcfilelist",
 			);
-			inputPaths = (
-			);
 			name = "[CP] Copy Pods Resources";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-Vault/Pods-Vault-resources-${CONFIGURATION}-output-files.xcfilelist",
-			);
-			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -604,13 +603,9 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-Vault/Pods-Vault-frameworks-${CONFIGURATION}-input-files.xcfilelist",
 			);
-			inputPaths = (
-			);
 			name = "[CP] Embed Pods Frameworks";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-Vault/Pods-Vault-frameworks-${CONFIGURATION}-output-files.xcfilelist",
-			);
-			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -645,6 +640,7 @@
 				D3634F0C2244C98B001CDBF9 /* UIView+Constraints.swift in Sources */,
 				D38D532623450FAC00333642 /* CustomSideMenuNavigationController.swift in Sources */,
 				D3EE71C92353772300C7B3AE /* ThreeSixtyImageViewController.swift in Sources */,
+				C0C0A11F2EC50001000A11F1 /* PanoramaView.swift in Sources */,
 				D3FE3DFA22584E98006C9C24 /* ARStatusViewController.swift in Sources */,
 				D381682D22F12D9C007878AC /* RequiredTask+CoreDataClass.swift in Sources */,
 				D3634F1222456BE7001CDBF9 /* TaskViewController.swift in Sources */,
@@ -856,8 +852,8 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = Vault/VAuLTDebug.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				CURRENT_PROJECT_VERSION = 3;
+				DEVELOPMENT_TEAM = 9PKQQVV26C;
 				INFOPLIST_FILE = Vault/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -865,7 +861,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 2.2;
-				PRODUCT_BUNDLE_IDENTIFIER = com.example.vault;
+				PRODUCT_BUNDLE_IDENTIFIER = com.cocorefactors.vii;
 				PRODUCT_NAME = VAuLT;
 				SWIFT_OBJC_BRIDGING_HEADER = "Vault/Vault-Bridging-Header.h";
 				SWIFT_VERSION = 4.2;
@@ -880,8 +876,8 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = Vault/VaultRelease.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				CURRENT_PROJECT_VERSION = 3;
+				DEVELOPMENT_TEAM = 9PKQQVV26C;
 				INFOPLIST_FILE = Vault/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -889,7 +885,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 2.2;
-				PRODUCT_BUNDLE_IDENTIFIER = com.example.vault;
+				PRODUCT_BUNDLE_IDENTIFIER = com.cocorefactors.vii;
 				PRODUCT_NAME = VAuLT;
 				SWIFT_OBJC_BRIDGING_HEADER = "Vault/Vault-Bridging-Header.h";
 				SWIFT_VERSION = 4.2;
@@ -904,14 +900,14 @@
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = "$(inherited)";
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = 9PKQQVV26C;
 				INFOPLIST_FILE = QuestTests/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.example.vault.tests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.cocorefactors.vii.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 4.2;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -926,14 +922,14 @@
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = "$(inherited)";
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = 9PKQQVV26C;
 				INFOPLIST_FILE = QuestTests/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.example.vault.tests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.cocorefactors.vii.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 4.2;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -947,14 +943,14 @@
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = "$(inherited)";
 				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = 9PKQQVV26C;
 				INFOPLIST_FILE = QuestUITests/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.example.vault.uitests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.cocorefactors.vii.uitests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 4.2;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -968,14 +964,14 @@
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = "$(inherited)";
 				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = 9PKQQVV26C;
 				INFOPLIST_FILE = QuestUITests/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.example.vault.uitests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.cocorefactors.vii.uitests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 4.2;
 				TARGETED_DEVICE_FAMILY = "1,2";

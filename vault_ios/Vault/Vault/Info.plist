@@ -4,6 +4,8 @@
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<key>CFBundleDisplayName</key>
+	<string>Vii by CoCo</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -24,12 +26,14 @@
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<!-- Reversed form of the iOS client ID set in AppDelegate.swift -->
-				<string>com.googleusercontent.apps.YOUR_IOS_CLIENT_ID</string>
+				<string>com.googleusercontent.apps.your-ios-client-id</string>
 			</array>
 		</dict>
 	</array>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>

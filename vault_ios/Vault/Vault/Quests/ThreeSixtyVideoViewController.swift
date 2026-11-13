@@ -10,7 +10,7 @@ import UIKit
 
 class ThreeSixtyVideoViewController: UIViewController {
 
-    @IBOutlet weak var videoVRView: GVRVideoView!
+    @IBOutlet weak var videoVRView: PanoramaView!
     @IBOutlet weak var lockView: UIView!
     var isPlaying : Bool = false
     var task : Task!
@@ -21,11 +21,7 @@ class ThreeSixtyVideoViewController: UIViewController {
         super.viewDidLoad()
 
         // Do any additional setup after loading the view.
-        videoVRView.displayMode = .embedded
-        videoVRView.enableFullscreenButton = true
-        videoVRView.enableCardboardButton = true
-        videoVRView.enableTouchTracking = true
-        videoVRView.delegate = self
+        videoVRView.onTap = { [weak self] in self?.togglePlayback() }
     }
     
     override func viewWillAppear(_ animated: Bool) {
@@ -77,8 +73,8 @@ class ThreeSixtyVideoViewController: UIViewController {
 
 }
 
-extension ThreeSixtyVideoViewController: GVRWidgetViewDelegate{
-    func widgetViewDidTap(_ widgetView: GVRWidgetView!) {
+extension ThreeSixtyVideoViewController {
+    func togglePlayback() {
         if(isPlaying == true){
             videoVRView.pause()
             isPlaying = false
@@ -86,16 +82,5 @@ extension ThreeSixtyVideoViewController: GVRWidgetViewDelegate{
             videoVRView.play()
             isPlaying = true
         }
-    }
-    
-    func widgetView(_ widgetView: GVRWidgetView!, didLoadContent content: Any!) {
-    }
-    
-    func widgetView(_ widgetView: GVRWidgetView!, didChange displayMode: GVRWidgetDisplayMode) {
-        
-    }
-    
-    func widgetView(_ widgetView: GVRWidgetView!, didFailToLoadContent content: Any!, withErrorMessage errorMessage: String!) {
-        debugLog(errorMessage)
     }
 }
