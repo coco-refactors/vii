@@ -26,7 +26,7 @@ enum Router: URLRequestConvertible {
     
     // TODO: Set this to your self-hosted VAuLT backend URL before building.
     // Example: "https://vault-api.your-domain.example"
-    static var serverURLString = "https://your-vault-api-host.example.com"
+    static var serverURLString = "https://vii-api-production-ba707185.up.railway.app"
     static let baseURLString = serverURLString + "/api"
     static let perPage = 50
     

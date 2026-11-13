@@ -184,7 +184,7 @@
                                     <segue destination="iTS-M9-X5l" kind="presentation" identifier="signUpSegue" id="sKW-MG-1SE"/>
                                 </connections>
                             </button>
-                            <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="Hc4-Se-alr">
+                            <button hidden="YES" opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="Hc4-Se-alr">
                                 <rect key="frame" x="107" y="530" width="200" height="40"/>
                                 <constraints>
                                     <constraint firstAttribute="width" relation="greaterThanOrEqual" constant="200" id="9nT-ZZ-d6b"/>
