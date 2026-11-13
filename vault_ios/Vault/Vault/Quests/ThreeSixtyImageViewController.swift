@@ -12,19 +12,13 @@ class ThreeSixtyImageViewController: UIViewController {
 
     var task : Task!
     
-    @IBOutlet weak var panoramaView: GVRPanoramaView!
+    @IBOutlet weak var panoramaView: PanoramaView!
     @IBOutlet weak var lockView: UIView!
     
     override func viewDidLoad() {
         super.viewDidLoad()
 
         // Do any additional setup after loading the view.
-        panoramaView.displayMode = .embedded
-        panoramaView.enableFullscreenButton = true
-        panoramaView.enableCardboardButton = true
-        panoramaView.enableTouchTracking = true
-        panoramaView.delegate = self
-        
         if let mediaObjects = task.media{
             for media in mediaObjects{
                 let media = media as! Media
@@ -58,22 +52,4 @@ class ThreeSixtyImageViewController: UIViewController {
     }
     */
 
-}
-
-extension ThreeSixtyImageViewController: GVRWidgetViewDelegate{
-    func widgetViewDidTap(_ widgetView: GVRWidgetView!) {
-        
-    }
-    
-    func widgetView(_ widgetView: GVRWidgetView!, didLoadContent content: Any!) {
-
-    }
-    
-    func widgetView(_ widgetView: GVRWidgetView!, didChange displayMode: GVRWidgetDisplayMode) {
-        
-    }
-    
-    func widgetView(_ widgetView: GVRWidgetView!, didFailToLoadContent content: Any!, withErrorMessage errorMessage: String!) {
-        debugLog(errorMessage)
-    }
 }

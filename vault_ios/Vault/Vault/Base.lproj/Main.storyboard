@@ -761,7 +761,7 @@
                                     <constraint firstItem="cik-SM-kxC" firstAttribute="centerX" secondItem="kah-x0-Zhp" secondAttribute="centerX" id="OiC-Q4-2pH"/>
                                 </constraints>
                             </view>
-                            <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="F8U-4r-vr3" customClass="GVRVideoView">
+                            <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="F8U-4r-vr3" customClass="PanoramaView" customModule="VAuLT" customModuleProvider="target">
                                 <rect key="frame" x="0.0" y="0.0" width="414" height="716"/>
                                 <color key="backgroundColor" name="color_view_bg"/>
                             </view>
@@ -815,7 +815,7 @@
                                     <constraint firstItem="Ldu-Fg-xVZ" firstAttribute="centerY" secondItem="Nf5-IA-hj2" secondAttribute="centerY" id="qEC-8S-zlS"/>
                                 </constraints>
                             </view>
-                            <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="ET4-I5-2gJ" customClass="GVRPanoramaView">
+                            <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="ET4-I5-2gJ" customClass="PanoramaView" customModule="VAuLT" customModuleProvider="target">
                                 <rect key="frame" x="0.0" y="0.0" width="414" height="716"/>
                                 <color key="backgroundColor" name="color_view_bg"/>
                             </view>

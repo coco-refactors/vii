@@ -20,7 +20,6 @@ target 'Vault' do
   pod 'SwiftMessages', '~> 7.0.0'
   pod 'QRCodeReader.swift', '~> 10.1.0'
   pod 'SideMenu'
-  pod 'GVRSDK'
 
   target 'VaultTests' do
     inherit! :search_paths
