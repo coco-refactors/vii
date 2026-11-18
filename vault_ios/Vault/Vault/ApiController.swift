@@ -11,12 +11,70 @@ import Alamofire
 import SwiftyJSON
 import NVActivityIndicatorView
 
+struct LaunchLink: Equatable {
+    let questId: Int
+    let launchCode: String
+    let gatewayUrl: String
+    let rawText: String
+}
+
+class LaunchLinkParser {
+    static func parse(text: String) -> LaunchLink? {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.hasPrefix("vault://") || trimmed.hasPrefix("https://") || trimmed.hasPrefix("http://") else {
+            return nil
+        }
+        guard let url = URL(string: trimmed) else {
+            return nil
+        }
+        return parse(url: url)
+    }
+    
+    static func parse(url: URL) -> LaunchLink? {
+        guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
+            return nil
+        }
+        
+        var questId: Int?
+        if components.host == "quest" {
+            let segments = components.path.split(separator: "/").map(String.init)
+            if let first = segments.first, let qid = Int(first) {
+                questId = qid
+            }
+        } else {
+            let segments = components.path.split(separator: "/").map(String.init)
+            if let idx = segments.firstIndex(of: "quest"), idx + 1 < segments.count {
+                questId = Int(segments[idx + 1])
+            }
+        }
+        
+        if questId == nil || questId! <= 0 {
+            if let qVal = components.queryItems?.first(where: { $0.name == "questId" || $0.name == "quest_id" })?.value,
+               let qid = Int(qVal) {
+                questId = qid
+            }
+        }
+        
+        let token = components.queryItems?.first(where: { $0.name == "token" })?.value
+        let gateway = components.queryItems?.first(where: { $0.name == "gateway" })?.value
+        
+        guard let resolvedQuestId = questId, resolvedQuestId > 0,
+              let launchCode = token, !launchCode.isEmpty,
+              let gatewayUrl = gateway, !gatewayUrl.isEmpty else {
+            return nil
+        }
+        
+        return LaunchLink(questId: resolvedQuestId, launchCode: launchCode, gatewayUrl: gatewayUrl, rawText: url.absoluteString)
+    }
+}
+
 enum Router: URLRequestConvertible {
     case search(query: String, page: Int)
     case authenticate(username: String, password: String, type: String, access_token: String)
     case signUp(email: String, password1: String, password2: String)
     case saveUserTask(user_task_id: Int, userTask: UserTask)
     case resetQuest(quest_id: Int)
+    case startAttempt(quest_id: Int, launch_ref: String?)
     case downloadQuest(quest_id: Int)
     case downloadQuestBy(code: String)
     case syncUserTasks(userTasks: [String])
@@ -27,7 +85,9 @@ enum Router: URLRequestConvertible {
     // TODO: Set this to your self-hosted VAuLT backend URL before building.
     // Example: "https://vault-api.your-domain.example"
     static var serverURLString = "https://your-vault-api-host.example.com"
-    static let baseURLString = serverURLString + "/api"
+    static var baseURLString: String {
+        return serverURLString + "/api"
+    }
     static let perPage = 50
     
     // MARK: URLRequestConvertible
@@ -47,6 +107,12 @@ enum Router: URLRequestConvertible {
                 return ("/save-user-task", ["id": user_task_id, "UserTask": userTask.toJSON()])
             case let .resetQuest(quest_id):
                 return ("/reset-quest", ["quest_id": quest_id])
+            case let .startAttempt(quest_id, launch_ref):
+                var params: Parameters = ["quest_id": quest_id]
+                if let ref = launch_ref, !ref.isEmpty {
+                    params["launch_ref"] = ref
+                }
+                return ("/start-attempt", params)
             case let .downloadQuest(quest_id):
                 return ("/download-quest", ["quest_id": quest_id])
             case let .downloadQuestBy(code):
@@ -305,6 +371,142 @@ class ApiController {
             }
         }
     
+    // MARK: - Canvas / LTI Gateway and Quest Attempt Integration
+    
+    static func setLaunchRef(_ launchRef: String?, for questId: Int) {
+        let key = "vault_launch_ref_\(questId)"
+        if let ref = launchRef {
+            UserDefaults.standard.set(ref, forKey: key)
+        } else {
+            UserDefaults.standard.removeObject(forKey: key)
+        }
+        UserDefaults.standard.synchronize()
+    }
+    
+    static func getLaunchRef(for questId: Int) -> String? {
+        let key = "vault_launch_ref_\(questId)"
+        return UserDefaults.standard.string(forKey: key)
+    }
+    
+    static func startAttempt(quest_id: Int, launch_ref: String? = nil, completion: ((Bool, String?, [String: Any]?) -> Void)? = nil) {
+        let user = appDelegate.getUser()
+        if let access_token = user?.oauth?.access_token {
+            Manager.request(Router.startAttempt(quest_id: quest_id, launch_ref: launch_ref))
+                .authenticate(username: access_token, password: "")
+                .responseJSON { response in
+                    if let jsonValue = response.value {
+                        let json = JSON(jsonValue)
+                        if json["returnCode"] == 1 {
+                            let errMsg = json["returnCodeDescription"].stringValue
+                            completion?(false, errMsg, nil)
+                        } else {
+                            completion?(true, "Success", json["data"].dictionaryObject)
+                        }
+                    } else {
+                        let errMsg = response.error?.localizedDescription ?? "Error starting attempt."
+                        completion?(false, errMsg, nil)
+                    }
+                }
+        } else {
+            completion?(false, "Not authenticated.", nil)
+        }
+    }
+    
+    static func exchangeLaunchCode(gatewayUrl: String, launchCode: String, completion: @escaping (Bool, String?, [String: Any]?) -> Void) {
+        self.activityIndicatorVC.textLabel.text = "Authenticating..."
+        self.activityIndicatorVC.textLabel.isHidden = false
+        self.startActivityIndicator()
+        
+        let cleanBase = gatewayUrl.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        guard let url = URL(string: "\(cleanBase)/api/session/\(launchCode)/vault-login") else {
+            self.stopActivityIndicator()
+            completion(false, "Invalid gateway address.", nil)
+            return
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.timeoutInterval = 15
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        
+        Manager.request(request).responseJSON { response in
+            self.stopActivityIndicator()
+            let statusCode = response.response?.statusCode ?? 0
+            
+            if statusCode == 404 {
+                completion(false, "Session not found or expired. Please relaunch from Canvas.", nil)
+                return
+            }
+            if statusCode == 502 {
+                completion(false, "VAuLT login is unavailable. Please try again.", nil)
+                return
+            }
+            
+            if let jsonValue = response.value {
+                let json = JSON(jsonValue)
+                if statusCode >= 200 && statusCode < 300 {
+                    if let dict = json.dictionaryObject {
+                        completion(true, nil, dict)
+                        return
+                    }
+                }
+                let errMsg = json["error"].string ?? json["message"].string ?? "Could not exchange launch code."
+                completion(false, errMsg, nil)
+            } else {
+                let errMsg: String
+                if let err = response.error {
+                    if (err as NSError).code == NSURLErrorTimedOut {
+                        errMsg = "Connection to gateway timed out. Please check your network connection."
+                    } else if (err as NSError).code == NSURLErrorCannotConnectToHost || (err as NSError).code == NSURLErrorCannotFindHost {
+                        errMsg = "Could not reach gateway server. Please check the network address."
+                    } else {
+                        errMsg = err.localizedDescription
+                    }
+                } else {
+                    errMsg = "Could not connect to gateway server."
+                }
+                completion(false, errMsg, nil)
+            }
+        }
+    }
+    
+    static func storeGatewayLogin(data: [String: Any], completion: @escaping (Bool, String?, User?) -> Void) {
+        let json = JSON(data)
+        let vaultJSON = json["vault"]
+        
+        let userJSONString = vaultJSON["user"].rawString() ?? vaultJSON["user"].stringValue
+        let oauthJSONString = vaultJSON["oauth"].rawString() ?? vaultJSON["oauth"].stringValue
+        
+        guard let user = User(JSONString: userJSONString),
+              let oauth = Oauth(JSONString: oauthJSONString) else {
+            if let userDirect = User(JSONString: json["user"].rawString() ?? ""),
+               let oauthDirect = Oauth(JSONString: json["oauth"].rawString() ?? "") {
+                userDirect.oauth = oauthDirect
+                let ctx = (UIApplication.shared.delegate as! AppDelegate).persistentContainer.viewContext
+                do {
+                    try ctx.save()
+                    appDelegate.user = userDirect
+                    completion(true, nil, userDirect)
+                } catch {
+                    completion(false, "Error saving user session.", nil)
+                }
+                return
+            }
+            completion(false, "Invalid login credentials received from gateway.", nil)
+            return
+        }
+        
+        user.oauth = oauth
+        let ctx = (UIApplication.shared.delegate as! AppDelegate).persistentContainer.viewContext
+        do {
+            try ctx.save()
+            appDelegate.user = user
+            completion(true, nil, user)
+        } catch {
+            completion(false, "Error saving user session.", nil)
+        }
+    }
+
     /// Downloads all quest media on a background thread. Call completion on main when done (e.g. to stop spinner and proceed).
     static func downloadQuestMedia(quest: Quest, completion: (() -> Void)? = nil) {
         // Must run off main to avoid deadlock (ApiController.downloadData uses semaphore; Alamofire callbacks run on main).
@@ -672,8 +874,9 @@ class ApiController {
                                 completion(true, "Succes", userTask)
                             }
                         }
+                    } else {
+                        completion(false, "Error completing network request.", nil)
                     }
-                    completion(false, "Error completing network request.", nil)
             }
         }
     }
@@ -695,6 +898,10 @@ class ApiController {
                             let errMsg = json["returnCodeDescription"].stringValue;
                             completion(false, errMsg, nil)
                         }else{
+                            // If a launch reference is active for this quest, re-assert startAttempt to bind the restarted attempt
+                            if let launchRef = self.getLaunchRef(for: quest_id) {
+                                self.startAttempt(quest_id: quest_id, launch_ref: launchRef)
+                            }
                             //No errors.
                             let jsonString = json["data"]["quest"].rawString()!
                             //Map JSON to object using ObjectMapper

@@ -12,10 +12,15 @@ import GoogleSignIn
 import SideMenu
 
 @UIApplicationMain
+extension Notification.Name {
+    static let didReceiveGatewayLaunch = Notification.Name("didReceiveGatewayLaunch")
+}
+
 class AppDelegate: UIResponder, UIApplicationDelegate {
 
     var window: UIWindow?
     var user: User?
+    var pendingLaunchLink: LaunchLink?
 
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
@@ -36,7 +41,15 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
     
     func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey : Any] = [:]) -> Bool {
-        return GIDSignIn.sharedInstance().handle(url)
+        if GIDSignIn.sharedInstance().handle(url) {
+            return true
+        }
+        if let launchLink = LaunchLinkParser.parse(url: url) {
+            self.pendingLaunchLink = launchLink
+            NotificationCenter.default.post(name: .didReceiveGatewayLaunch, object: nil, userInfo: ["launchLink": launchLink])
+            return true
+        }
+        return false
     }
 
     func applicationWillResignActive(_ application: UIApplication) {
