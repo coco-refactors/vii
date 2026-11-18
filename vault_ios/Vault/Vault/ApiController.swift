@@ -49,14 +49,21 @@ class LaunchLinkParser {
         }
         
         if questId == nil || questId! <= 0 {
-            if let qVal = components.queryItems?.first(where: { $0.name == "questId" || $0.name == "quest_id" })?.value,
+            if let qVal = components.queryItems?.first(where: { $0.name == "questId" || $0.name == "quest_id" || $0.name == "quest" })?.value,
                let qid = Int(qVal) {
                 questId = qid
             }
         }
         
-        let token = components.queryItems?.first(where: { $0.name == "token" })?.value
-        let gateway = components.queryItems?.first(where: { $0.name == "gateway" })?.value
+        let token = components.queryItems?.first(where: { $0.name == "token" || $0.name == "code" })?.value
+        var gateway = components.queryItems?.first(where: { $0.name == "gateway" })?.value
+        
+        if (gateway == nil || gateway!.isEmpty) && (components.scheme == "http" || components.scheme == "https") {
+            if let host = components.host {
+                let portStr = components.port != nil ? ":\(components.port!)" : ""
+                gateway = "\(components.scheme!)://\(host)\(portStr)"
+            }
+        }
         
         guard let resolvedQuestId = questId, resolvedQuestId > 0,
               let launchCode = token, !launchCode.isEmpty,
@@ -418,55 +425,78 @@ class ApiController {
         self.startActivityIndicator()
         
         let cleanBase = gatewayUrl.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-        guard let url = URL(string: "\(cleanBase)/api/session/\(launchCode)/vault-login") else {
+        guard let redeemUrl = URL(string: "\(cleanBase)/api/launch/redeem") else {
             self.stopActivityIndicator()
             completion(false, "Invalid gateway address.", nil)
             return
         }
         
-        var request = URLRequest(url: url)
+        var request = URLRequest(url: redeemUrl)
         request.httpMethod = "POST"
         request.timeoutInterval = 15
         request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        let body: [String: Any] = ["code": launchCode]
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body, options: [])
         
         Manager.request(request).responseJSON { response in
-            self.stopActivityIndicator()
             let statusCode = response.response?.statusCode ?? 0
             
-            if statusCode == 404 {
-                completion(false, "Session not found or expired. Please relaunch from Canvas.", nil)
-                return
-            }
-            if statusCode == 502 {
-                completion(false, "VAuLT login is unavailable. Please try again.", nil)
+            // If /api/launch/redeem is not found, fallback to legacy /api/session/:token/vault-login
+            if statusCode == 404, let legacyUrl = URL(string: "\(cleanBase)/api/session/\(launchCode)/vault-login") {
+                var legacyReq = URLRequest(url: legacyUrl)
+                legacyReq.httpMethod = "POST"
+                legacyReq.timeoutInterval = 15
+                legacyReq.setValue("application/json", forHTTPHeaderField: "Accept")
+                
+                Manager.request(legacyReq).responseJSON { legacyResp in
+                    self.stopActivityIndicator()
+                    self.handleExchangeResponse(response: legacyResp, completion: completion)
+                }
                 return
             }
             
-            if let jsonValue = response.value {
-                let json = JSON(jsonValue)
-                if statusCode >= 200 && statusCode < 300 {
-                    if let dict = json.dictionaryObject {
-                        completion(true, nil, dict)
-                        return
-                    }
+            self.stopActivityIndicator()
+            self.handleExchangeResponse(response: response, completion: completion)
+        }
+    }
+    
+    private static func handleExchangeResponse(response: AFDataResponse<Any>, completion: @escaping (Bool, String?, [String: Any]?) -> Void) {
+        let statusCode = response.response?.statusCode ?? 0
+        
+        if statusCode == 404 || statusCode == 410 {
+            completion(false, "This QR code has expired or was already used. Reload the page in Canvas for a new one.", nil)
+            return
+        }
+        if statusCode == 502 {
+            completion(false, "VAuLT login is unavailable. Please try again.", nil)
+            return
+        }
+        
+        if let jsonValue = response.value {
+            let json = JSON(jsonValue)
+            if statusCode >= 200 && statusCode < 300 {
+                if let dict = json.dictionaryObject {
+                    completion(true, nil, dict)
+                    return
                 }
-                let errMsg = json["error"].string ?? json["message"].string ?? "Could not exchange launch code."
-                completion(false, errMsg, nil)
-            } else {
-                let errMsg: String
-                if let err = response.error {
-                    if (err as NSError).code == NSURLErrorTimedOut {
-                        errMsg = "Connection to gateway timed out. Please check your network connection."
-                    } else if (err as NSError).code == NSURLErrorCannotConnectToHost || (err as NSError).code == NSURLErrorCannotFindHost {
-                        errMsg = "Could not reach gateway server. Please check the network address."
-                    } else {
-                        errMsg = err.localizedDescription
-                    }
-                } else {
-                    errMsg = "Could not connect to gateway server."
-                }
-                completion(false, errMsg, nil)
             }
+            let errMsg = json["error"].string ?? json["message"].string ?? "Could not exchange launch code."
+            completion(false, errMsg, nil)
+        } else {
+            let errMsg: String
+            if let err = response.error {
+                if (err as NSError).code == NSURLErrorTimedOut {
+                    errMsg = "Connection to gateway timed out. Please check your network connection."
+                } else if (err as NSError).code == NSURLErrorCannotConnectToHost || (err as NSError).code == NSURLErrorCannotFindHost {
+                    errMsg = "Could not reach gateway server. Please check the network address."
+                } else {
+                    errMsg = err.localizedDescription
+                }
+            } else {
+                errMsg = "Could not connect to gateway server."
+            }
+            completion(false, errMsg, nil)
         }
     }
     

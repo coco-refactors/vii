@@ -43,6 +43,24 @@ class VaultTests: XCTestCase {
         XCTAssertEqual(parsed?.gatewayUrl, "http://192.168.1.50:8080")
     }
 
+    func testRecogniseViiGatewayQRLinks() {
+        // Direct web link stored in QR code: https://gateway.example.com/launch/m?code=xyz123&quest=2
+        let webLink = "https://gateway.example.com/launch/m?code=xyz123&quest=2"
+        let parsedWeb = LaunchLinkParser.parse(text: webLink)
+        XCTAssertNotNil(parsedWeb)
+        XCTAssertEqual(parsedWeb?.questId, 2)
+        XCTAssertEqual(parsedWeb?.launchCode, "xyz123")
+        XCTAssertEqual(parsedWeb?.gatewayUrl, "https://gateway.example.com")
+
+        // Mobile deep link: vault://launch?gateway=https%3A%2F%2Fgateway.example.com&code=xyz123&quest=2
+        let deepLink = "vault://launch?gateway=https%3A%2F%2Fgateway.example.com&code=xyz123&quest=2"
+        let parsedDeep = LaunchLinkParser.parse(text: deepLink)
+        XCTAssertNotNil(parsedDeep)
+        XCTAssertEqual(parsedDeep?.questId, 2)
+        XCTAssertEqual(parsedDeep?.launchCode, "xyz123")
+        XCTAssertEqual(parsedDeep?.gatewayUrl, "https://gateway.example.com")
+    }
+
     func testRecognisePlainStartCodeReturnsNil() {
         // Plain start codes should NOT be recognised as gateway launch links
         let plainCodes = ["START123", "4820", "QUEST-CHEM", "plain-code-value"]

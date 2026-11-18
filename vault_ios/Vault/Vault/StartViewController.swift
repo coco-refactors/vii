@@ -173,13 +173,17 @@ class StartViewController: UIViewController, UITextFieldDelegate {
                 }
                 SideMenuManager.default.leftMenuNavigationController?.dismiss(animated: false, completion: nil)
                 
-                // Persist launch reference
-                ApiController.setLaunchRef(link.launchCode, for: link.questId)
+                // Extract launchRef and questId returned by the gateway
+                let targetQuestId = (data["questId"] as? Int) ?? (link.questId > 0 ? link.questId : 1)
+                let targetLaunchRef = (data["launchRef"] as? String) ?? link.launchCode
+                
+                // Persist launch reference for this quest
+                ApiController.setLaunchRef(targetLaunchRef, for: targetQuestId)
                 
                 // Start or resume attempt before downloading quest
-                ApiController.startAttempt(quest_id: link.questId, launch_ref: link.launchCode) { (_, _, _) in
+                ApiController.startAttempt(quest_id: targetQuestId, launch_ref: targetLaunchRef) { (_, _, _) in
                     // Download the quest by id without asking for start code
-                    ApiController.downloadQuest(quest_id: link.questId) { [weak self] (dlSuccess, dlMsg, quest) in
+                    ApiController.downloadQuest(quest_id: targetQuestId) { [weak self] (dlSuccess, dlMsg, quest) in
                         guard let self = self else { return }
                         if dlSuccess, let downloadedQuest = quest {
                             self.selectedQuest = downloadedQuest
