@@ -5,7 +5,8 @@ WORKDIR /app
 
 COPY docker-build/composer.json ./
 
-RUN composer install
+# composer:2 now ships PHP 8.6; resolve packages for the PHP the runtime stage actually runs (8.5).
+RUN composer config platform.php 8.5 && composer install
 
 FROM php:8.5-apache
 

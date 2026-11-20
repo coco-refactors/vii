@@ -28,10 +28,16 @@ class StartViewController: UIViewController, UITextFieldDelegate {
         startButton.roundCorners(corners: [.topRight, .bottomRight], radius: 4)
         SideMenuManager.default.addPanGestureToPresent(toView: self.view)
         SideMenuManager.default.addPanGestureToPresent(toView: self.navigationController!.navigationBar)
+        NotificationCenter.default.addObserver(self, selector: #selector(handleGatewayLaunchNotification(_:)), name: .didReceiveGatewayLaunch, object: nil)
     }
     
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
+        if let pending = appDelegate.pendingLaunchLink {
+            appDelegate.pendingLaunchLink = nil
+            handleGatewayLaunch(link: pending)
+            return
+        }
         user = appDelegate.getUser()
         if(user == nil){
             performSegue(withIdentifier: "loginSegue", sender: self)
@@ -117,15 +123,78 @@ class StartViewController: UIViewController, UITextFieldDelegate {
     }()
     
     func decodeQRResult(result: String){
-            debugLog(result)
+        debugLog(result)
+        if let launchLink = LaunchLinkParser.parse(text: result) {
+            handleGatewayLaunch(link: launchLink)
+        } else {
             ApiController.downloadQuestByCode(code: result, completion: { (success, msg, downloadedQuest) in
                 if(success){
                     self.selectedQuest = downloadedQuest
                     self.performSegue(withIdentifier: "taskSegue", sender: self)
                 }else{
-                    self.showErrorMessage(title: "Error", body: msg!, presentationStyle: .top, duration: 5.0, buttonTapHandler: nil, buttonTitle: nil, image: nil)
+                    self.showErrorMessage(title: "Error", body: msg ?? "Could not download quest.", presentationStyle: .top, duration: 5.0, buttonTapHandler: nil, buttonTitle: nil, image: nil)
                 }
             })
+        }
+    }
+    
+    @objc func handleGatewayLaunchNotification(_ notification: Notification) {
+        if let link = notification.userInfo?["launchLink"] as? LaunchLink {
+            handleGatewayLaunch(link: link)
+        }
+    }
+    
+    func handleGatewayLaunch(link: LaunchLink) {
+        ApiController.exchangeLaunchCode(gatewayUrl: link.gatewayUrl, launchCode: link.launchCode) { [weak self] (success, errorMsg, data) in
+            guard let self = self else { return }
+            if !success {
+                self.showErrorMessage(title: "Launch Error", body: errorMsg ?? "Could not connect to the gateway.", presentationStyle: .top, duration: 5.0, buttonTapHandler: nil, buttonTitle: nil, image: nil)
+                return
+            }
+            
+            guard let data = data else {
+                self.showErrorMessage(title: "Launch Error", body: "Invalid response from gateway.", presentationStyle: .top, duration: 5.0, buttonTapHandler: nil, buttonTitle: nil, image: nil)
+                return
+            }
+            
+            // Store returned login and skip login screen
+            ApiController.storeGatewayLogin(data: data) { [weak self] (loginSuccess, loginError, user) in
+                guard let self = self else { return }
+                if !loginSuccess {
+                    self.showErrorMessage(title: "Login Error", body: loginError ?? "Could not log in.", presentationStyle: .top, duration: 5.0, buttonTapHandler: nil, buttonTitle: nil, image: nil)
+                    return
+                }
+                
+                self.user = user
+                
+                // Dismiss login screen if presented
+                if let presented = self.presentedViewController {
+                    presented.dismiss(animated: false, completion: nil)
+                }
+                SideMenuManager.default.leftMenuNavigationController?.dismiss(animated: false, completion: nil)
+                
+                // Extract launchRef and questId returned by the gateway
+                let targetQuestId = (data["questId"] as? Int) ?? (link.questId > 0 ? link.questId : 1)
+                let targetLaunchRef = (data["launchRef"] as? String) ?? link.launchCode
+                
+                // Persist launch reference for this quest
+                ApiController.setLaunchRef(targetLaunchRef, for: targetQuestId)
+                
+                // Start or resume attempt before downloading quest
+                ApiController.startAttempt(quest_id: targetQuestId, launch_ref: targetLaunchRef) { (_, _, _) in
+                    // Download the quest by id without asking for start code
+                    ApiController.downloadQuest(quest_id: targetQuestId) { [weak self] (dlSuccess, dlMsg, quest) in
+                        guard let self = self else { return }
+                        if dlSuccess, let downloadedQuest = quest {
+                            self.selectedQuest = downloadedQuest
+                            self.performSegue(withIdentifier: "taskSegue", sender: self)
+                        } else {
+                            self.showErrorMessage(title: "Error", body: dlMsg ?? "Could not download quest.", presentationStyle: .top, duration: 5.0, buttonTapHandler: nil, buttonTitle: nil, image: nil)
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 

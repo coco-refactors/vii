@@ -29,6 +29,16 @@
 				<string>com.googleusercontent.apps.your-ios-client-id</string>
 			</array>
 		</dict>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>org.casls.vault</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>vault</string>
+			</array>
+		</dict>
 	</array>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
@@ -36,6 +46,13 @@
 	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
 	<key>NSCameraUsageDescription</key>
 	<string>The app uses the camera for augmented reality based tasks.  The user will use the camera to trigger targets in realtime during an AR session.  Image data used during the AR session is not saved.</string>
 	<key>NSMicrophoneUsageDescription</key>
