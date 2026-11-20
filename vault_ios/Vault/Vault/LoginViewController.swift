@@ -7,19 +7,25 @@
 //
 
 import UIKit
+// Google Sign-In is switched off for now (see the note in the Podfile). Everything that
+// needs the SDK sits behind `#if canImport(GoogleSignIn)`, so it compiles again once the
+// pod is back; the two Google buttons stay in the storyboard, hidden.
+#if canImport(GoogleSignIn)
 import GoogleSignIn
+#endif
 import AuthenticationServices
 import SideMenu
 
 @available(iOS 13.0, *)
-class LoginViewController: UIViewController, GIDSignInDelegate, UITextFieldDelegate, ASAuthorizationControllerDelegate, ASAuthorizationControllerPresentationContextProviding {
+class LoginViewController: UIViewController, UITextFieldDelegate, ASAuthorizationControllerDelegate, ASAuthorizationControllerPresentationContextProviding {
     func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {
         return self.view.window!
     }
     
     @IBOutlet weak var emailField: UITextField!
     @IBOutlet weak var passwordField: UITextField!
-    @IBOutlet var googleSignInButton: GIDSignInButton!
+    // Was a GIDSignInButton; a plain hidden view while Google Sign-In is off.
+    @IBOutlet var googleSignInButton: UIView!
     @IBOutlet var appleSignInButton: UIButton!
     
     let appDelegate = UIApplication.shared.delegate as! AppDelegate
@@ -29,10 +35,12 @@ class LoginViewController: UIViewController, GIDSignInDelegate, UITextFieldDeleg
         super.viewDidLoad()
         // Do any additional setup after loading the view, typically from a nib.
         
+        #if canImport(GoogleSignIn)
         GIDSignIn.sharedInstance()?.delegate = self
-        
+
         GIDSignIn.sharedInstance()?.presentingViewController = self
-        googleSignInButton.style = .wide
+        (googleSignInButton as? GIDSignInButton)?.style = .wide
+        #endif
         
         let newAppleSignInButton = ASAuthorizationAppleIDButton.init(type: .signIn, style: .whiteOutline)
         (newAppleSignInButton as UIControl).cornerRadius = 8
@@ -72,7 +80,9 @@ class LoginViewController: UIViewController, GIDSignInDelegate, UITextFieldDeleg
     }
     
     @IBAction func googleLoginButtonTouched(_ sender: Any){
+        #if canImport(GoogleSignIn)
         GIDSignIn.sharedInstance()?.signIn()
+        #endif
     }
     
     @IBAction func guestLoginButtonTouched(_ sender: Any)   {
@@ -108,8 +118,10 @@ class LoginViewController: UIViewController, GIDSignInDelegate, UITextFieldDeleg
         
         appDelegate.deleteAllData()
         
+        #if canImport(GoogleSignIn)
         //Sign out of google.
         GIDSignIn.sharedInstance().signOut()
+        #endif
     }
     @IBAction func logoutButtonTouched(_ sender: Any) {
         self.logout()
@@ -128,6 +140,7 @@ class LoginViewController: UIViewController, GIDSignInDelegate, UITextFieldDeleg
     }
     
     /** Google Sign In methods **/
+    #if canImport(GoogleSignIn)
     func sign(_ signIn: GIDSignIn!, didSignInFor user: GIDGoogleUser!,
               withError error: Error!) {
         if let error = error {
@@ -155,6 +168,7 @@ class LoginViewController: UIViewController, GIDSignInDelegate, UITextFieldDeleg
         // Perform any operations when the user disconnects from app here.
         // ...
     }
+    #endif
     
     /** Guest Sign In methods */
     func guestSign()    {
@@ -252,3 +266,8 @@ extension UIView {
 
     }
 }
+
+#if canImport(GoogleSignIn)
+@available(iOS 13.0, *)
+extension LoginViewController: GIDSignInDelegate {}
+#endif
